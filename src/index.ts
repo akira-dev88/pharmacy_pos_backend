@@ -20,7 +20,7 @@ import reportRoutes from './routes/reports';
 import staffRoutes from './routes/staff';
 import categoryAttributeRoutes from './routes/categoryAttributes';
 import productUnitRoutes from './routes/productUnits';
-
+import productBatchRoutes from './routes/productBatches';
 
 import { LicenseService } from './services/licenseService';
 
@@ -101,6 +101,11 @@ app.use(
 app.use(
   '/api/product-units',
   productUnitRoutes
+);
+
+app.use(
+  '/api/product-batches',
+  productBatchRoutes
 );
 
 // Health check
