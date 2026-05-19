@@ -27,6 +27,7 @@ export function runMigrations(): void {
     );
 
     CREATE TABLE IF NOT EXISTS products (
+
       product_uuid TEXT PRIMARY KEY,
 
       name TEXT NOT NULL,
@@ -37,9 +38,23 @@ export function runMigrations(): void {
       barcode TEXT,
       sku TEXT,
 
+      product_type TEXT DEFAULT 'medicine',
+
+      manufacturer TEXT,
+      composition TEXT,
+
+      schedule_type TEXT DEFAULT 'NONE',
+
+      prescription_required INTEGER DEFAULT 0,
+
+      medicine_type TEXT,
+
+      rack_location TEXT,
+
       unit TEXT DEFAULT 'piece',
 
       price REAL NOT NULL,
+
       purchase_price REAL DEFAULT 0,
 
       gst_percent REAL NOT NULL DEFAULT 0.00,
@@ -47,9 +62,11 @@ export function runMigrations(): void {
       stock REAL NOT NULL DEFAULT 0,
 
       hsn_code TEXT,
+
       image TEXT,
 
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
       FOREIGN KEY (category_uuid) REFERENCES categories(category_uuid)
@@ -58,6 +75,58 @@ export function runMigrations(): void {
     CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode);
     CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku);
     CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);
+    CREATE INDEX IF NOT EXISTS idx_products_composition ON products(composition);
+    CREATE INDEX IF NOT EXISTS idx_products_manufacturer ON products(manufacturer);
+
+    CREATE TABLE IF NOT EXISTS product_batches (
+
+      batch_uuid TEXT PRIMARY KEY,
+
+      product_uuid TEXT NOT NULL,
+
+      batch_number TEXT NOT NULL,
+
+      expiry_date TEXT NOT NULL,
+
+      manufacture_date TEXT,
+
+      mrp REAL NOT NULL,
+
+      ptr REAL DEFAULT 0,
+
+      rate REAL DEFAULT 0,
+
+      purchase_price REAL DEFAULT 0,
+
+      selling_price REAL DEFAULT 0,
+
+      gst_percent REAL DEFAULT 0,
+
+      quantity REAL NOT NULL DEFAULT 0,
+
+      free_quantity REAL DEFAULT 0,
+
+      supplier_uuid TEXT,
+
+      purchase_uuid TEXT,
+
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+      FOREIGN KEY (product_uuid)
+      REFERENCES products(product_uuid),
+
+      FOREIGN KEY (supplier_uuid)
+      REFERENCES suppliers(supplier_uuid),
+
+      FOREIGN KEY (purchase_uuid)
+      REFERENCES purchases(purchase_uuid)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_batches_product ON product_batches(product_uuid);
+    CREATE INDEX IF NOT EXISTS idx_batches_expiry ON product_batches(expiry_date);
+    CREATE INDEX IF NOT EXISTS idx_batches_batch_number ON product_batches(batch_number);
 
     CREATE TABLE IF NOT EXISTS customers (
       customer_uuid TEXT PRIMARY KEY,
@@ -94,7 +163,7 @@ export function runMigrations(): void {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       sale_uuid TEXT NOT NULL,
       product_uuid TEXT NOT NULL,
-      quantity INTEGER NOT NULL,
+      quantity REAL NOT NULL,
       price REAL NOT NULL,
       tax_percent REAL NOT NULL,
       tax_amount REAL NOT NULL,
@@ -119,7 +188,7 @@ export function runMigrations(): void {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       purchase_uuid TEXT NOT NULL,
       product_uuid TEXT NOT NULL,
-      quantity INTEGER NOT NULL,
+      quantity REAL NOT NULL,
       cost_price REAL NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -155,7 +224,7 @@ export function runMigrations(): void {
     CREATE TABLE IF NOT EXISTS stock_ledgers (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       product_uuid TEXT NOT NULL,
-      quantity INTEGER NOT NULL,
+      quantity REAL NOT NULL,
       type TEXT NOT NULL,
       reference_uuid TEXT,
       note TEXT,
@@ -194,7 +263,7 @@ export function runMigrations(): void {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       cart_uuid TEXT NOT NULL,
       product_uuid TEXT NOT NULL,
-      quantity INTEGER NOT NULL,
+      quantity REAL NOT NULL,
       price REAL NOT NULL,
       discount REAL NOT NULL DEFAULT 0.00,
       tax_percent REAL NOT NULL DEFAULT 0.00,
