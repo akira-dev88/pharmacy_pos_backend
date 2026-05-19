@@ -168,4 +168,40 @@ export class ProductBatchController {
       });
     }
   };
+
+  // =========================
+  // AVAILABLE BATCHES
+  // =========================
+
+  static available = (
+    req: Request,
+    res: Response
+  ): void => {
+
+    try {
+
+      const product_uuid =
+        String(req.params.product_uuid);
+
+      const batches =
+        ProductBatchModel
+          .getAvailableBatches(
+            product_uuid
+          );
+
+      res.json({
+        success: true,
+        data: batches
+      });
+
+    } catch (error) {
+
+      console.error(error);
+
+      res.status(500).json({
+        success: false,
+        error: 'Internal server error'
+      });
+    }
+  };
 }

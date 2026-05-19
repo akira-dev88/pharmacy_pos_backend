@@ -24,4 +24,9 @@ router.get(
   ProductBatchController.getByProduct
 );
 
+router.get(
+  '/available/:product_uuid',
+  ProductBatchController.available
+);
+
 export default router;

@@ -7,6 +7,8 @@ import type {
   ProductBatchCreateInput
 } from '../types';
 
+import { ProductModel } from './Product';
+
 export class ProductBatchModel {
 
   // =========================
@@ -18,6 +20,16 @@ export class ProductBatchModel {
   ): ProductBatch {
 
     const batchUuid = uuidv4();
+
+    const today = new Date()
+      .toISOString()
+      .split('T')[0];
+
+    if (input.expiry_date <= today) {
+      throw new Error(
+        'Expired batch cannot be added'
+      );
+    }
 
     const stmt = db.prepare(`
 
@@ -92,6 +104,10 @@ export class ProductBatchModel {
       input.purchase_uuid || null
     );
 
+    this.recalculateProductStock(
+      input.product_uuid
+    );
+
     return this.findById(batchUuid)!;
   }
 
@@ -156,4 +172,89 @@ export class ProductBatchModel {
 
     return stmt.all(product_uuid) as ProductBatch[];
   }
+
+  // =========================
+  // RECALCULATE PRODUCT STOCK
+  // =========================
+
+  static recalculateProductStock(
+    product_uuid: string
+  ): void {
+
+    const stmt = db.prepare(`
+
+    SELECT
+      COALESCE(SUM(quantity), 0) as total
+
+    FROM product_batches
+
+    WHERE product_uuid = ?
+  `);
+
+    const result = stmt.get(
+      product_uuid
+    ) as any;
+
+    db.prepare(`
+
+    UPDATE products
+
+    SET
+      stock = ?,
+      updated_at = CURRENT_TIMESTAMP
+
+    WHERE product_uuid = ?
+  `).run(
+      result.total,
+      product_uuid
+    );
+  }
+
+  // =========================
+  // UPDATE BATCH QUANTITY
+  // =========================
+
+  static updateQuantity(
+    batch_uuid: string,
+    quantity: number,
+    operation: 'add' | 'subtract'
+  ): ProductBatch | undefined {
+
+    const batch =
+      this.findById(batch_uuid);
+
+    if (!batch) return undefined;
+
+    const newQuantity =
+      operation === 'add'
+        ? batch.quantity + quantity
+        : batch.quantity - quantity;
+
+    if (newQuantity < 0) {
+      throw new Error(
+        'Insufficient batch stock'
+      );
+    }
+
+    db.prepare(`
+
+    UPDATE product_batches
+
+    SET
+      quantity = ?,
+      updated_at = CURRENT_TIMESTAMP
+
+    WHERE batch_uuid = ?
+  `).run(
+      newQuantity,
+      batch_uuid
+    );
+
+    this.recalculateProductStock(
+      batch.product_uuid
+    );
+
+    return this.findById(batch_uuid);
+  }
+
 }
