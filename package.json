@@ -1,0 +1,41 @@
+{
+  "name": "pos-billing-backend",
+  "version": "1.0.0",
+  "description": "POS Billing System Backend",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "migrate": "ts-node src/database/migrations/001_initial.ts",
+    "migrate:fresh": "rm -f database/*.db && npm run migrate",
+    "db:info": "ts-node -e \"import { getDatabaseInfo } from './src/database/connection'; console.log(JSON.stringify(getDatabaseInfo(), null, 2));\"",
+    "db:backup": "ts-node -e \"import { backupDatabase } from './src/database/connection'; backupDatabase();\"",
+    "clean": "rm -rf dist/ database/*.db",
+    "setup": "npm install && npm run migrate"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^12.9.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "uuid": "^14.0.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^25.6.0",
+    "@types/uuid": "^10.0.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^6.0.3"
+  }
+}
