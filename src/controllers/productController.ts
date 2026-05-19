@@ -39,6 +39,15 @@ export class ProductController {
         subcategory,
         barcode,
         sku,
+        // PHARMACY
+        product_type,
+        manufacturer,
+        composition,
+        schedule_type,
+        prescription_required,
+        medicine_type,
+        rack_location,
+        // GENERAL
         unit,
         price,
         purchase_price,
@@ -104,6 +113,26 @@ export class ProductController {
 
         barcode,
         sku,
+
+        // PHARMACY
+        product_type,
+
+        manufacturer,
+
+        composition,
+
+        schedule_type,
+
+        prescription_required:
+          prescription_required !== undefined
+            ? Number(prescription_required)
+            : 0,
+
+        medicine_type,
+
+        rack_location,
+
+        // GENERAL
 
         unit,
 

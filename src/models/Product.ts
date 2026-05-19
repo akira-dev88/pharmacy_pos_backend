@@ -29,6 +29,13 @@ export class ProductModel {
           subcategory,
           barcode,
           sku,
+          product_type,
+          manufacturer,
+          composition,
+          schedule_type,
+          prescription_required,
+          medicine_type,
+          rack_location,
           unit,
           price,
           purchase_price,
@@ -37,7 +44,9 @@ export class ProductModel {
           hsn_code,
           image
         ) VALUES (
-          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+          ?, ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?, ?, ?
         )
       `);
 
@@ -48,6 +57,13 @@ export class ProductModel {
         input.subcategory || null,
         input.barcode || null,
         input.sku || null,
+        input.product_type || 'medicine',
+        input.manufacturer || null,
+        input.composition || null,
+        input.schedule_type || 'NONE',
+        input.prescription_required || 0,
+        input.medicine_type || null,
+        input.rack_location || null,
         input.unit || 'piece',
         input.price,
         input.purchase_price || 0,
@@ -218,6 +234,9 @@ export class ProductModel {
         p.name LIKE ?
         OR p.sku LIKE ?
         OR p.barcode LIKE ?
+        OR p.composition LIKE ?
+        OR p.manufacturer LIKE ?
+        OR p.rack_location LIKE ?
         OR pa.value LIKE ?
 
       ORDER BY p.name ASC
@@ -225,6 +244,9 @@ export class ProductModel {
     `);
 
     const products = stmt.all(
+      `%${query}%`,
+      `%${query}%`,
+      `%${query}%`,
       `%${query}%`,
       `%${query}%`,
       `%${query}%`,
@@ -260,6 +282,13 @@ export class ProductModel {
         'subcategory',
         'barcode',
         'sku',
+        'product_type',
+        'manufacturer',
+        'composition',
+        'schedule_type',
+        'prescription_required',
+        'medicine_type',
+        'rack_location',
         'unit',
         'price',
         'purchase_price',
