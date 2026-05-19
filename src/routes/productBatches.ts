@@ -29,4 +29,9 @@ router.get(
   ProductBatchController.available
 );
 
+router.post(
+  '/consume-fefo',
+  ProductBatchController.consumeFEFO
+);
+
 export default router;

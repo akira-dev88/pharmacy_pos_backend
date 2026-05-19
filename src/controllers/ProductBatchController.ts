@@ -204,4 +204,56 @@ export class ProductBatchController {
       });
     }
   };
+
+  // =========================
+// TEST FEFO CONSUMPTION
+// =========================
+
+static consumeFEFO = (
+  req: Request,
+  res: Response
+): void => {
+
+  try {
+
+    const {
+      product_uuid,
+      quantity
+    } = req.body;
+
+    if (
+      !product_uuid ||
+      quantity === undefined
+    ) {
+
+      res.status(400).json({
+        success: false,
+        error: 'Missing fields'
+      });
+
+      return;
+    }
+
+    const result =
+      ProductBatchModel
+        .consumeStockFEFO(
+          product_uuid,
+          Number(quantity)
+        );
+
+    res.json({
+      success: true,
+      data: result
+    });
+
+  } catch (error: any) {
+
+    console.error(error);
+
+    res.status(400).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
 }

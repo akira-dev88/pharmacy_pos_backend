@@ -257,4 +257,68 @@ export class ProductBatchModel {
     return this.findById(batch_uuid);
   }
 
+  // =========================
+  // CONSUME STOCK (FEFO)
+  // =========================
+
+  static consumeStockFEFO(
+    product_uuid: string,
+    quantity: number
+  ): {
+    batch_uuid: string;
+    quantity: number;
+  }[] {
+
+    const batches =
+      this.getAvailableBatches(
+        product_uuid
+      );
+
+    let remaining = quantity;
+
+    const consumed: {
+      batch_uuid: string;
+      quantity: number;
+    }[] = [];
+
+    for (const batch of batches) {
+
+      if (remaining <= 0) {
+        break;
+      }
+
+      const deductQty =
+        Math.min(
+          batch.quantity,
+          remaining
+        );
+
+      // REDUCE BATCH
+
+      this.updateQuantity(
+        batch.batch_uuid,
+        deductQty,
+        'subtract'
+      );
+
+      consumed.push({
+
+        batch_uuid: batch.batch_uuid,
+
+        quantity: deductQty
+      });
+
+      remaining -= deductQty;
+    }
+
+    if (remaining > 0) {
+
+      throw new Error(
+        'Insufficient stock across batches'
+      );
+    }
+
+    return consumed;
+  }
+
 }
