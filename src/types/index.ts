@@ -9,19 +9,41 @@ export interface User {
 }
 
 export interface Product {
+
   product_uuid: string;
 
   name: string;
 
   category_uuid?: string;
+
   subcategory?: string;
 
   barcode?: string;
+
   sku?: string;
+
+  // PHARMACY
+
+  product_type?: string;
+
+  manufacturer?: string;
+
+  composition?: string;
+
+  schedule_type?: string;
+
+  prescription_required?: number;
+
+  medicine_type?: string;
+
+  rack_location?: string;
+
+  // GENERAL
 
   unit: string;
 
   price: number;
+
   purchase_price?: number;
 
   gst_percent: number;
@@ -29,9 +51,11 @@ export interface Product {
   stock: number;
 
   hsn_code?: string;
+
   image?: string;
 
   created_at: string;
+
   updated_at: string;
 
   attributes?: ProductAttribute[];
@@ -84,17 +108,39 @@ export interface ProductAttribute {
 }
 
 export interface ProductCreateInput {
+
   name: string;
 
   category_uuid?: string;
+
   subcategory?: string;
 
   barcode?: string;
+
   sku?: string;
+
+  // PHARMACY
+
+  product_type?: string;
+
+  manufacturer?: string;
+
+  composition?: string;
+
+  schedule_type?: string;
+
+  prescription_required?: number;
+
+  medicine_type?: string;
+
+  rack_location?: string;
+
+  // GENERAL
 
   unit?: string;
 
   price: number;
+
   purchase_price?: number;
 
   gst_percent?: number;
@@ -102,11 +148,15 @@ export interface ProductCreateInput {
   stock?: number;
 
   hsn_code?: string;
+
   image?: string;
 
   attributes?: {
+
     attribute_uuid: string;
+
     value: string;
+
   }[];
 }
 
@@ -115,14 +165,35 @@ export interface ProductUpdateInput {
   name?: string;
 
   category_uuid?: string;
+
   subcategory?: string;
 
   barcode?: string;
+
   sku?: string;
+
+  // PHARMACY
+
+  product_type?: string;
+
+  manufacturer?: string;
+
+  composition?: string;
+
+  schedule_type?: string;
+
+  prescription_required?: number;
+
+  medicine_type?: string;
+
+  rack_location?: string;
+
+  // GENERAL
 
   unit?: string;
 
   price?: number;
+
   purchase_price?: number;
 
   gst_percent?: number;
@@ -130,12 +201,84 @@ export interface ProductUpdateInput {
   stock?: number;
 
   hsn_code?: string;
+
   image?: string;
 
   attributes?: {
+
     attribute_uuid: string;
+
     value: string;
+
   }[];
+}
+
+export interface ProductBatch {
+
+  batch_uuid: string;
+
+  product_uuid: string;
+
+  batch_number: string;
+
+  expiry_date: string;
+
+  manufacture_date?: string;
+
+  mrp: number;
+
+  ptr?: number;
+
+  rate?: number;
+
+  purchase_price?: number;
+
+  selling_price?: number;
+
+  gst_percent?: number;
+
+  quantity: number;
+
+  free_quantity?: number;
+
+  supplier_uuid?: string;
+
+  purchase_uuid?: string;
+
+  created_at: string;
+
+  updated_at: string;
+}
+
+export interface ProductBatchCreateInput {
+
+  product_uuid: string;
+
+  batch_number: string;
+
+  expiry_date: string;
+
+  manufacture_date?: string;
+
+  mrp: number;
+
+  ptr?: number;
+
+  rate?: number;
+
+  purchase_price?: number;
+
+  selling_price?: number;
+
+  gst_percent?: number;
+
+  quantity: number;
+
+  free_quantity?: number;
+
+  supplier_uuid?: string;
+
+  purchase_uuid?: string;
 }
 
 export interface ProductSearchParams {
