@@ -388,8 +388,17 @@ export interface PurchaseItem {
   id: number;
   purchase_uuid: string;
   product_uuid: string;
+  batch_number: string;
+  expiry_date: string;
+  manufacture_date?: string;
   quantity: number;
+  free_quantity?: number;
+  mrp: number;
+  ptr?: number;
+  rate?: number;
   cost_price: number;
+  selling_price?: number;
+  gst_percent?: number;
   created_at: string;
   updated_at: string;
 }
