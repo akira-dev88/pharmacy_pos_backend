@@ -1,6 +1,8 @@
 import db from '../database/connection';
 import type { Sale, SaleItem, Payment, CartWithItems } from '../types/index';
 import { v4 as uuidv4 } from 'uuid';
+import { ProductBatchModel }
+  from './ProductBatch';
 
 export class SaleModel {
   // Create sale from cart (checkout) - Fix pattern matching PHP
@@ -32,10 +34,6 @@ export class SaleModel {
           throw new Error(`Insufficient stock for ${product?.name || 'product'}`);
         }
 
-        // Decrement stock
-        db.prepare(
-          'UPDATE products SET stock = stock - ?, updated_at = CURRENT_TIMESTAMP WHERE product_uuid = ?'
-        ).run(item.quantity, item.product_uuid);
       }
 
       const grandTotal = total + taxTotal;
@@ -61,22 +59,48 @@ export class SaleModel {
       // Create sale items
       const insertItem = db.prepare(`
         INSERT INTO sale_items (
-          sale_uuid, product_uuid, quantity, 
-          price, tax_percent, tax_amount
-        ) VALUES (?, ?, ?, ?, ?, ?)
+        sale_uuid, product_uuid, 
+        batch_uuid, quantity, 
+        price, tax_percent,
+        tax_amount) VALUES (?, ?, ?, ?, ?, ?, ?)
       `);
 
       for (const item of cartData.items) {
         const itemTaxAmount = (item.price * item.quantity * item.tax_percent) / 100;
 
-        insertItem.run(
-          saleUuid,
-          item.product_uuid,
-          item.quantity,
-          item.price,
-          item.tax_percent,
-          Math.round(itemTaxAmount * 100) / 100
-        );
+        const consumedBatches =
+          ProductBatchModel.consumeStockFEFO(
+            item.product_uuid,
+            item.quantity
+          );
+
+        for (const consumed of consumedBatches) {
+
+          const proportionalTax = (
+            item.price *
+            consumed.quantity *
+            item.tax_percent
+          ) / 100;
+
+          insertItem.run(
+
+            saleUuid,
+
+            item.product_uuid,
+
+            consumed.batch_uuid,
+
+            consumed.quantity,
+
+            item.price,
+
+            item.tax_percent,
+
+            Math.round(
+              proportionalTax * 100
+            ) / 100
+          );
+        }
 
         // Stock ledger entry
         db.prepare(`

@@ -163,6 +163,7 @@ export function runMigrations(): void {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       sale_uuid TEXT NOT NULL,
       product_uuid TEXT NOT NULL,
+      batch_uuid TEXT NOT NULL,
       quantity REAL NOT NULL,
       price REAL NOT NULL,
       tax_percent REAL NOT NULL,
@@ -170,7 +171,8 @@ export function runMigrations(): void {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (sale_uuid) REFERENCES sales(sale_uuid),
-      FOREIGN KEY (product_uuid) REFERENCES products(product_uuid)
+      FOREIGN KEY (product_uuid) REFERENCES products(product_uuid),
+      FOREIGN KEY (batch_uuid) REFERENCES product_batches(batch_uuid)
     );
 
     CREATE INDEX IF NOT EXISTS idx_sale_items_sale ON sale_items(sale_uuid);

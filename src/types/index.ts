@@ -357,6 +357,7 @@ export interface SaleItem {
   id: number;
   sale_uuid: string;
   product_uuid: string;
+  batch_uuid: string;
   quantity: number;
   price: number;
   tax_percent: number;

@@ -177,20 +177,36 @@ POST	/products/bulk	Bulk create products	Yes
 GET	/products/:uuid	Get single product	Yes
 PUT	/products/:uuid	Update product	Yes
 DELETE	/products/:uuid	Delete product	Yes
+
+SEARCH:
+
+GET /products/search?q=paracetamol
+GET /products/search?q=Micro
+
 Create Product
 http
 POST /api/products
 Request Body
 
 json
+
 {
-  "name": "Product Name",
-  "price": 99.99,
-  "barcode": "123456789",
-  "sku": "SKU001",
-  "gst_percent": 18,
-  "stock": 50
+  "name": "Dolo 650",
+  "barcode": "8901234567890",
+  "product_type": "medicine",
+  "manufacturer": "Micro Labs",
+  "composition": "Paracetamol 650mg",
+  "schedule_type": "H",
+  "prescription_required": 0,
+  "medicine_type": "tablet",
+  "rack_location": "A-12",
+  "unit": "strip",
+  "price": 32,
+  "purchase_price": 24,
+  "gst_percent": 12,
+  "stock": 100
 }
+
 Field	Type	Required	Description
 name	string	Yes	Product name
 price	number	Yes	Selling price
@@ -280,6 +296,104 @@ json
   ]
 }
 
+### Batch 
+
+GET /api/product-batches/product/YOUR_PRODUCT_UUID
+
+POST /api/product-batches
+
+{
+  "product_uuid": "YOUR_PRODUCT_UUID",
+
+  "batch_number": "DOLO-001",
+
+  "expiry_date": "2027-12-31",
+
+  "manufacture_date": "2025-01-01",
+
+  "mrp": 32,
+
+  "ptr": 24,
+
+  "rate": 22,
+
+  "purchase_price": 22,
+
+  "selling_price": 32,
+
+  "gst_percent": 12,
+
+  "quantity": 100,
+
+  "free_quantity": 10
+}
+
+STOCK UPDATE
+
+/api/product-batches
+
+{
+  "product_uuid": "b3b8a257-ce93-4e52-83b2-421e52e84d75",
+  "batch_number": "DOLO-002",
+  "expiry_date": "2028-01-01",
+  "mrp": 32,
+  "quantity": 50
+}
+
+//automatic FEFO allocation
+
+B1 -> 5
+B2 -> 3
+
+/api/product-batches
+
+{
+  "product_uuid": "b3b8a257-ce93-4e52-83b2-421e52e84d75",
+  "batch_number": "DOLO-A",
+  "expiry_date": "2027-01-01",
+  "mrp": 32,
+  "quantity": 5
+}
+
+/api/product-batches
+
+{
+  "product_uuid": "b3b8a257-ce93-4e52-83b2-421e52e84d75",
+  "batch_number": "DOLO-B",
+  "expiry_date": "2027-01-01",
+  "mrp": 32,
+  "quantity": 10
+}
+
+POST /api/product-batches/consume-fefo
+
+{
+  "product_uuid": "b3b8a257-ce93-4e52-83b2-421e52e84d75",
+  "quantity": 8
+}
+
+respose
+{
+    "success": true,
+    "data": [
+        {
+            "batch_uuid": "972ae3d6-4657-4393-af8e-3b50132e26c0",
+            "quantity": 5
+        },
+        {
+            "batch_uuid": "4052702a-4385-46d8-856f-0df9fd7b3a32",
+            "quantity": 3
+        }
+    ]
+}
+
+| Batch  | Remaining |
+| ------ | --------- |
+| DOLO-A | 0         |
+| DOLO-B | 7         |
+  
+
+--
 ### Carts
 Shopping cart management for POS transactions.
 
