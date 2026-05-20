@@ -381,6 +381,45 @@ export function runMigrations(): void {
       REFERENCES products(product_uuid)
     );
 
+    CREATE TABLE IF NOT EXISTS stock_adjustments (
+
+      adjustment_uuid TEXT PRIMARY KEY,
+
+      product_uuid TEXT NOT NULL,
+
+      batch_uuid TEXT NOT NULL,
+
+      adjustment_type TEXT NOT NULL,
+
+      quantity REAL NOT NULL,
+
+      note TEXT,
+
+      performed_by TEXT,
+
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+      FOREIGN KEY (product_uuid)
+        REFERENCES products(product_uuid),
+
+      FOREIGN KEY (batch_uuid)
+        REFERENCES product_batches(batch_uuid),
+
+      FOREIGN KEY (performed_by)
+        REFERENCES users(user_uuid)
+    );
+
+  CREATE INDEX IF NOT EXISTS idx_adjustments_product
+  ON stock_adjustments(product_uuid);
+
+  CREATE INDEX IF NOT EXISTS idx_adjustments_batch
+  ON stock_adjustments(batch_uuid);
+
+  CREATE INDEX IF NOT EXISTS idx_adjustments_type
+  ON stock_adjustments(adjustment_type);
+
   `);
 
   console.log('Migrations completed successfully!');

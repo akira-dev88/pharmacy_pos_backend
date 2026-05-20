@@ -32,6 +32,9 @@ from './routes/attributes';
 import categoryRoutes
 from './routes/categories';
 
+import stockAdjustmentRoutes
+  from './routes/stockAdjustmentRoutes';
+
 // Load environment variables - simplified for CommonJS
 dotenv.config();
 
@@ -106,6 +109,11 @@ app.use(
 app.use(
   '/api/product-batches',
   productBatchRoutes
+);
+
+app.use(
+  '/api/stock-adjustments',
+  stockAdjustmentRoutes
 );
 
 // Health check

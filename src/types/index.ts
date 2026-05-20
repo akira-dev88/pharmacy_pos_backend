@@ -503,3 +503,47 @@ export interface CartSummary {
   tax: number;
   grand_total: number;
 }
+
+export type StockAdjustmentType =
+  | 'damage'
+  | 'expired'
+  | 'leakage'
+  | 'theft'
+  | 'manual'
+  | 'supplier_return';
+
+export interface StockAdjustment {
+
+  adjustment_uuid: string;
+
+  product_uuid: string;
+
+  batch_uuid: string;
+
+  adjustment_type: StockAdjustmentType;
+
+  quantity: number;
+
+  note?: string | null;
+
+  performed_by?: string | null;
+
+  created_at: string;
+
+  updated_at: string;
+}
+
+export interface CreateStockAdjustmentInput {
+
+  product_uuid: string;
+
+  batch_uuid: string;
+
+  adjustment_type: StockAdjustmentType;
+
+  quantity: number;
+
+  note?: string;
+
+  performed_by?: string;
+}

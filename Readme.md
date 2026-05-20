@@ -410,6 +410,20 @@ GET /api/product-batches/near-expiry
     ]
 }
 
+STOCK ADJUSTMENT
+
+POST /api/stock-adjustments
+
+{
+  "product_uuid": "9b43935c-63b8-492b-8617-c11e5d0dfad1",
+  "batch_uuid": "523f50d2-ec76-4c03-aeee-985edb73bf14",
+  "adjustment_type": "damage",
+  "quantity": 2,
+  "note": "Broken strip"
+}
+
+
+
 --
 ### Carts
 Shopping cart management for POS transactions.
