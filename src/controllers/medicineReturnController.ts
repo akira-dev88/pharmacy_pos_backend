@@ -28,8 +28,6 @@ export class MedicineReturnController {
 
         sale_uuid,
 
-        sale_item_id,
-
         product_uuid,
 
         batch_uuid,
@@ -63,8 +61,6 @@ export class MedicineReturnController {
         MedicineReturnModel.create({
 
           sale_uuid,
-
-          sale_item_id,
 
           product_uuid,
 
