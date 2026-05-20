@@ -8,6 +8,10 @@ import {
   AuditLogModel
 } from './AuditLog';
 
+import {
+  canDispenseRestrictedMedicine
+} from '../utils/pharmacyAuth';
+
 export class SaleModel {
   // Create sale from cart (checkout) - Fix pattern matching PHP
   static createFromCart(
@@ -137,8 +141,9 @@ export class SaleModel {
           });
 
           if (
-            !currentUser ||
-            currentUser.role !== 'admin'
+            !canDispenseRestrictedMedicine(
+              currentUser
+            )
           ) {
             throw new Error(
               `Only pharmacist/admin can sell ${product.name}`
@@ -182,6 +187,21 @@ export class SaleModel {
         Math.round(taxTotal * 100) / 100,
         Math.round(grandTotal * 100) / 100
       );
+
+      db.prepare(`
+
+      UPDATE sales
+
+      SET
+
+        is_locked = 1,
+
+        updated_at = CURRENT_TIMESTAMP
+
+      WHERE sale_uuid = ?
+    `).run(
+      saleUuid
+    );
 
       // Create sale items
       const insertItem = db.prepare(`
@@ -526,6 +546,30 @@ export class SaleModel {
 
       return { sale, paid: paidAmount, balance };
     });
+
+    const lockedSale = db.prepare(`
+
+      SELECT is_locked
+
+      FROM sales
+
+      WHERE sale_uuid = ?
+    `).get(
+      saleUuid
+    ) as {
+      is_locked: number;
+    };
+
+    if (
+      Number(
+        lockedSale.is_locked
+      ) === 1
+    ) {
+
+      throw new Error(
+        'Locked invoice cannot be modified'
+      );
+    }
 
     return transaction();
   }
@@ -1092,7 +1136,6 @@ export class SaleModel {
   }
 
   // Get sales list with pagination - Pattern matching PHP index
-  // Get sales list with pagination - Pattern matching PHP index
   static findAll(page: number = 1, limit: number = 50, filters: any): { sales: any[], total: number } {
     const offset = (page - 1) * limit;
 
@@ -1170,5 +1213,264 @@ export class SaleModel {
       payments,
       customer
     };
+  }
+
+  static voidSale(
+
+    saleUuid: string,
+
+    userUuid: string,
+
+    reason: string
+  ): void {
+
+    const transaction = db.transaction(() => {
+
+      // =========================
+      // FETCH SALE
+      // =========================
+
+      const sale = db.prepare(`
+
+      SELECT *
+
+      FROM sales
+
+      WHERE sale_uuid = ?
+    `).get(
+        saleUuid
+      ) as Sale | undefined;
+
+      if (!sale) {
+
+        throw new Error(
+          'Sale not found'
+        );
+      }
+
+      // =========================
+      // ALREADY VOIDED
+      // =========================
+
+      if (
+        sale.status === 'refunded'
+      ) {
+
+        throw new Error(
+          'Sale already voided'
+        );
+      }
+
+      // =========================
+      // FETCH SALE ITEMS
+      // =========================
+
+      const items = db.prepare(`
+
+      SELECT
+
+        sale_uuid,
+        product_uuid,
+        batch_uuid,
+        quantity
+
+      FROM sale_items
+
+      WHERE sale_uuid = ?
+    `).all(
+        saleUuid
+      ) as Array<{
+
+        sale_uuid: string;
+
+        product_uuid: string;
+
+        batch_uuid: string | null;
+
+        quantity: number;
+      }>;
+
+      // =========================
+      // RESTORE STOCK
+      // =========================
+
+      for (const item of items) {
+
+        if (item.batch_uuid) {
+
+          ProductBatchModel.updateQuantity(
+
+            item.batch_uuid,
+
+            item.quantity,
+
+            'add'
+          );
+        }
+
+        db.prepare(`
+
+        INSERT INTO stock_ledgers (
+
+          product_uuid,
+          quantity,
+          type,
+          reference_uuid,
+          note
+
+        ) VALUES (
+
+          ?, ?, ?, ?, ?
+        )
+      `).run(
+
+          item.product_uuid,
+
+          item.quantity,
+
+          'return',
+
+          saleUuid,
+
+          'Sale void stock restored'
+        );
+
+        ProductBatchModel.recalculateProductStock(
+          item.product_uuid
+        );
+      }
+
+      // =========================
+      // VOID SALE
+      // =========================
+
+      db.prepare(`
+
+      UPDATE sales
+
+      SET
+
+        status = 'refunded',
+
+        updated_at =
+          CURRENT_TIMESTAMP
+
+      WHERE sale_uuid = ?
+    `).run(
+        saleUuid
+      );
+
+      // =========================
+      // REVERSE CUSTOMER CREDIT
+      // =========================
+
+      if (sale.customer_uuid) {
+
+        const payLaterAmount = db.prepare(`
+
+        SELECT
+
+          COALESCE(
+            SUM(amount),
+            0
+          ) as total
+
+        FROM payments
+
+        WHERE
+
+          sale_uuid = ?
+
+          AND method = 'pay_later'
+      `).get(
+          saleUuid
+        ) as {
+          total: number;
+        };
+
+        if (
+          Number(payLaterAmount.total) > 0
+        ) {
+
+          db.prepare(`
+
+          UPDATE customers
+
+          SET
+
+            credit_balance =
+              credit_balance - ?,
+
+            updated_at =
+              CURRENT_TIMESTAMP
+
+          WHERE customer_uuid = ?
+        `).run(
+
+            payLaterAmount.total,
+
+            sale.customer_uuid
+          );
+
+          db.prepare(`
+
+          INSERT INTO customer_ledgers (
+
+            customer_uuid,
+            type,
+            amount,
+            reference_uuid,
+            note
+
+          ) VALUES (
+
+            ?, ?, ?, ?, ?
+          )
+        `).run(
+
+            sale.customer_uuid,
+
+            'credit',
+
+            -Math.abs(
+              payLaterAmount.total
+            ),
+
+            saleUuid,
+
+            'Sale void reversal'
+          );
+        }
+      }
+
+      // =========================
+      // AUDIT LOG
+      // =========================
+
+      AuditLogModel.create({
+
+        action_type:
+          'sale_updated',
+
+        entity_type:
+          'sale',
+
+        entity_uuid:
+          saleUuid,
+
+        user_uuid:
+          userUuid,
+
+        details: JSON.stringify({
+
+          operation:
+            'sale_voided',
+
+          reason
+        })
+      });
+    });
+
+    transaction();
   }
 }

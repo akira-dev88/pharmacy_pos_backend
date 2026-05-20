@@ -3,7 +3,9 @@ export interface User {
   name: string;
   email: string;
   password: string;
-  role: 'owner' | 'cashier' | 'manager';
+  role:
+  | 'admin'
+  | 'staff';
   created_at: string;
   updated_at: string;
 }
@@ -766,15 +768,10 @@ export interface CreateH1RegisterInput {
 export type AuditActionType =
 
   | 'sale_created'
-  | 'sale_return'
-  | 'stock_adjustment'
-  | 'batch_quarantined'
+  | 'sale_updated'
   | 'schedule_h1_sale'
   | 'schedule_x_sale'
-  | 'manual_stock_edit'
-  | 'customer_return'
-  | 'supplier_return'
-  | 'payment_refund';
+  | 'batch_quarantined';
 
 export interface AuditLog {
 

@@ -91,6 +91,33 @@ text
 
 ---
 
+Error Codes
+| Status Code | Description |
+|-------------|-------------|
+| 200 | OK - Successful request |
+| 201 | Created - Resource created successfully |
+| 400 | Bad Request - Invalid input/validation error |
+| 401 | Unauthorized - Missing or invalid authentication |
+| 403 | Forbidden - Insufficient permissions |
+| 404 | Not Found - Resource not found |
+| 500 | Internal Server Error |
+
+Error Response Format
+```
+{
+  "success": false,
+  "error": "Error message description"
+}
+```
+
+### User Roles
+Role	Description	Permissions
+owner	Shop owner/admin	Full access to all features
+manager	Store manager	Sales, reports, product management
+cashier	Counter staff	POS operations, cart checkout
+
+---
+
 ## API Modules
 
 ---
@@ -108,20 +135,24 @@ Authentication endpoints for user registration and login.
 
 #### Register New Shop & Admin
 
-http
-POST /api/auth/register
+`POST /api/auth/register`
+
 Request Body
 
-json
+```
 {
   "shop_name": "My Shop",
   "name": "Admin",
   "email": "admin@test.com",
   "password": "123456"
 }
+
+```
+
+
 Response 201 Created
 
-json
+```
 {
   "user": {
     "user_uuid": "uuid-here",
@@ -136,19 +167,25 @@ json
   },
   "token": "jwt-token-here"
 }
-Login
-http
-POST /api/auth/login
+
+```
+
+#### Login
+
+`POST /api/auth/login`
+
 Request Body
 
-json
+```
 {
   "email": "admin@test.com",
   "password": "123456"
-}
+} 
+```
+
 Response 200 OK
 
-json
+```
 {
   "user": {
     "user_uuid": "uuid-here",
@@ -162,34 +199,36 @@ json
   },
   "token": "jwt-token-here"
 }
+```
 
 ### Products
 Product management endpoints.
 
-Method	Endpoint	Description	Auth
-GET	/products	List all products	Yes
-GET	/products/search?q=	Search products by name	Yes
-GET	/products/barcode/:barcode	Find product by barcode	Yes
-GET	/products/sku/:sku	Find product by SKU	Yes
-GET	/products/low-stock?threshold=10	Get low stock products	Yes
-POST	/products	Create product	Yes
-POST	/products/bulk	Bulk create products	Yes
-GET	/products/:uuid	Get single product	Yes
-PUT	/products/:uuid	Update product	Yes
-DELETE	/products/:uuid	Delete product	Yes
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/products` | List all products | Yes |
+| GET | `/products/search?q=` | Search products by name | Yes |
+| GET | `/products/barcode/:barcode` | Find product by barcode | Yes |
+| GET | `/products/sku/:sku` | Find product by SKU | Yes |
+| GET | `/products/low-stock?threshold=10` | Get low stock products | Yes |
+| POST | `/products` | Create product | Yes |
+| POST | `/products/bulk` | Bulk create products | Yes |
+| GET | `/products/:uuid` | Get single product | Yes |
+| PUT | `/products/:uuid` | Update product | Yes |
+| DELETE | `/products/:uuid` | Delete product | Yes |
 
-SEARCH:
+#### SEARCH:
 
-GET /products/search?q=paracetamol
-GET /products/search?q=Micro
+`GET /products/search?q=paracetamol`
 
-Create Product
-http
-POST /api/products
+`GET /products/search?q=Micro`
+
+#### Create Product
+
+`POST /api/products`
+
 Request Body
-
-json
-
+```
 {
   "name": "Dolo 650",
   "barcode": "8901234567890",
@@ -206,17 +245,19 @@ json
   "gst_percent": 12,
   "stock": 100
 }
+```
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| name | string | Yes | Product name |
+| price | number | Yes | Selling price |
+| barcode | string | No | Barcode number |
+| sku | string | No | Stock Keeping Unit |
+| gst_percent | number | No | GST percentage (default: 0) |
+| stock | number | No | Initial stock quantity (default: 0) |
 
-Field	Type	Required	Description
-name	string	Yes	Product name
-price	number	Yes	Selling price
-barcode	string	No	Barcode number
-sku	string	No	Stock Keeping Unit
-gst_percent	number	No	GST percentage (default: 0)
-stock	number	No	Initial stock quantity (default: 0)
 Response 201 Created
 
-json
+```
 {
   "success": true,
   "message": "Product created successfully",
@@ -232,12 +273,15 @@ json
     "updated_at": "2024-01-15T10:30:00.000Z"
   }
 }
+```
+
 List Products (Paginated)
-http
-GET /api/products?page=1&limit=20
+
+`GET /api/products?page=1&limit=20`
+
 Response 200 OK
 
-json
+```
 {
   "success": true,
   "data": [ /* array of products */ ],
@@ -248,46 +292,56 @@ json
     "totalPages": 8
   }
 }
-Search Products
-http
-GET /api/products/search?q=Product
-Response 200 OK
+```
+#### Search Products
 
-json
+`GET /api/products/search?q=Product`
+
+Response 200 OK
+```
 {
   "success": true,
   "data": [ /* array of matching products */ ],
   "count": 5
 }
-Find by Barcode
-http
-GET /api/products/barcode/123456789
+```
+
+#### Find by Barcode
+
+
+`GET /api/products/barcode/123456789`
+
 Find by SKU
-http
-GET /api/products/sku/SKU001
+
+`GET /api/products/sku/SKU001`
+
 Update Product
-http
-PUT /api/products/:uuid
+
+`PUT /api/products/:uuid`
+
 Request Body (All fields optional)
 
-json
+```
 {
   "name": "Updated Name",
   "price": 149.99,
   "stock": 100
 }
+```
 Delete Product
-http
-DELETE /api/products/:uuid
-Get Low Stock Products
-http
-GET /api/products/low-stock?threshold=10
-Bulk Create Products
-http
-POST /api/products/bulk
-Request Body
 
-json
+`DELETE /api/products/:uuid`
+
+Get Low Stock Products
+
+`GET /api/products/low-stock?threshold=10`
+
+Bulk Create Products
+
+`POST /api/products/bulk`
+
+Request Body
+```
 {
   "products": [
     {"name": "Product A", "price": 10.99},
@@ -295,13 +349,15 @@ json
     {"name": "Product C", "price": 15.99}
   ]
 }
+```
 
 ### Batch 
 
-GET /api/product-batches/product/YOUR_PRODUCT_UUID
+`GET /api/product-batches/product/YOUR_PRODUCT_UUID`
 
-POST /api/product-batches
+`POST /api/product-batches`
 
+```
 {
   "product_uuid": "YOUR_PRODUCT_UUID",
 
@@ -327,11 +383,12 @@ POST /api/product-batches
 
   "free_quantity": 10
 }
+```
 
 STOCK UPDATE
 
-/api/product-batches
-
+`PUT /api/product-batches`
+```
 {
   "product_uuid": "b3b8a257-ce93-4e52-83b2-421e52e84d75",
   "batch_number": "DOLO-002",
@@ -339,14 +396,15 @@ STOCK UPDATE
   "mrp": 32,
   "quantity": 50
 }
+```
 
 //automatic FEFO allocation
 
 B1 -> 5
 B2 -> 3
 
-/api/product-batches
-
+`POST /api/product-batche`s
+```
 {
   "product_uuid": "b3b8a257-ce93-4e52-83b2-421e52e84d75",
   "batch_number": "DOLO-A",
@@ -354,9 +412,10 @@ B2 -> 3
   "mrp": 32,
   "quantity": 5
 }
+```
 
-/api/product-batches
-
+`POST /api/product-batches`
+```
 {
   "product_uuid": "b3b8a257-ce93-4e52-83b2-421e52e84d75",
   "batch_number": "DOLO-B",
@@ -364,15 +423,18 @@ B2 -> 3
   "mrp": 32,
   "quantity": 10
 }
+```
+`POST /api/product-batches/consume-fefo`
 
-POST /api/product-batches/consume-fefo
-
+```
 {
   "product_uuid": "b3b8a257-ce93-4e52-83b2-421e52e84d75",
   "quantity": 8
 }
-
+```
 respose
+
+```
 {
     "success": true,
     "data": [
@@ -386,14 +448,15 @@ respose
         }
     ]
 }
+```
 
 | Batch  | Remaining |
 | ------ | --------- |
 | DOLO-A | 0         |
 | DOLO-B | 7         |
 
-GET /api/product-batches/near-expiry
-
+`GET /api/product-batches/near-expiry`
+```
 {
     "success": true,
     "count": 1,
@@ -409,11 +472,12 @@ GET /api/product-batches/near-expiry
         }
     ]
 }
+```
 
-STOCK ADJUSTMENT
+### STOCK ADJUSTMENT
 
-POST /api/stock-adjustments
-
+`POST /api/stock-adjustments`
+```
 {
   "product_uuid": "9b43935c-63b8-492b-8617-c11e5d0dfad1",
   "batch_uuid": "523f50d2-ec76-4c03-aeee-985edb73bf14",
@@ -421,31 +485,34 @@ POST /api/stock-adjustments
   "quantity": 2,
   "note": "Broken strip"
 }
-
+```
 
 
 --
 ### Carts
 Shopping cart management for POS transactions.
 
-Method	Endpoint	Description	Auth
-POST	/carts	Create new cart	Yes
-GET	/carts/held	Get held carts	Yes
-GET	/carts/:cart_uuid	Get cart with items & summary	Yes
-POST	/carts/:cart_uuid/items	Add item to cart	Yes
-PUT	/carts/:cart_uuid/items/:product_uuid	Update cart item	Yes
-DELETE	/carts/:cart_uuid/items/:product_uuid	Remove item from cart	Yes
-POST	/carts/:cart_uuid/discount	Apply bill discount	Yes
-POST	/carts/:cart_uuid/hold	Hold cart	Yes
-POST	/carts/:cart_uuid/resume	Resume held cart	Yes
-POST	/carts/:cart_uuid/clear	Clear all items	Yes
-POST	/carts/:cart_uuid/checkout	Checkout cart (Owner/Manager/Cashier)	Yes
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| POST | `/carts` | Create new cart | Yes |
+| GET | `/carts/held` | Get held carts | Yes |
+| GET | `/carts/:cart_uuid` | Get cart with items & summary | Yes |
+| POST | `/carts/:cart_uuid/items` | Add item to cart | Yes |
+| PUT | `/carts/:cart_uuid/items/:product_uuid` | Update cart item | Yes |
+| DELETE | `/carts/:cart_uuid/items/:product_uuid` | Remove item from cart | Yes |
+| POST | `/carts/:cart_uuid/discount` | Apply bill discount | Yes |
+| POST | `/carts/:cart_uuid/hold` | Hold cart | Yes |
+| POST | `/carts/:cart_uuid/resume` | Resume held cart | Yes |
+| POST | `/carts/:cart_uuid/clear` | Clear all items | Yes |
+| POST | `/carts/:cart_uuid/checkout` | Checkout cart (Owner/Manager/Cashier) | Yes |
+
 Create Cart
-http
-POST /api/carts
+
+`POST /api/carts`
+
 Response 201 Created
 
-json
+```
 {
   "success": true,
   "message": "Cart created successfully",
@@ -457,12 +524,15 @@ json
     "updated_at": "2024-01-15T10:30:00.000Z"
   }
 }
+```
+
 Get Cart with Items & Summary
-http
-GET /api/carts/:cart_uuid
+
+`GET /api/carts/:cart_uuid`
+
 Response 200 OK
 
-json
+```
 {
   "success": true,
   "data": {
@@ -492,55 +562,64 @@ json
     }
   }
 }
+```
 Add Item to Cart
-http
-POST /api/carts/:cart_uuid/items
-Request Body
 
-json
+`POST /api/carts/:cart_uuid/items`
+
+Request Body
+```
 {
   "product_uuid": "product-uuid-here",
   "quantity": 2
 }
+```
 Update Cart Item
-http
-PUT /api/carts/:cart_uuid/items/:product_uuid
-Request Body
 
-json
+`PUT /api/carts/:cart_uuid/items/:product_uuid`
+
+Request Body
+```
 {
   "quantity": 5,
   "price": 89.99,
   "discount": 5.00,
   "tax_percent": 12
 }
-Remove Item from Cart
-http
-DELETE /api/carts/:cart_uuid/items/:product_uuid
-Apply Bill Discount
-http
-POST /api/carts/:cart_uuid/discount
-Request Body
+```
 
-json
+Remove Item from Cart
+
+`DELETE /api/carts/:cart_uuid/items/:product_uuid`
+
+Apply Bill Discount
+
+`POST /api/carts/:cart_uuid/discount`
+
+Request Body
+```
 {
   "discount": 50.00
 }
+```
 Hold Cart
-http
-POST /api/carts/:cart_uuid/hold
-Resume Held Cart
-http
-POST /api/carts/:cart_uuid/resume
-Clear Cart
-http
-POST /api/carts/:cart_uuid/clear
-Checkout Cart
-http
-POST /api/carts/:cart_uuid/checkout
-Request Body
 
-json
+`POST /api/carts/:cart_uuid/hold`
+
+Resume Held Cart
+
+`POST /api/carts/:cart_uuid/resume`
+
+Clear Cart
+
+`POST /api/carts/:cart_uuid/clear`
+
+Checkout Cart
+
+`POST /api/carts/:cart_uuid/checkout`
+
+Request Body
+```
 {
   "customer_uuid": "uuid",
   "payments": [
@@ -561,11 +640,12 @@ json
     }
   ]
 }
+```
+
 Payment Methods: cash, upi, card, credit
 
 Response 201 Created
-
-json
+```
 {
   "success": true,
   "message": "Checkout successful",
@@ -581,21 +661,24 @@ json
     "payments": [ /* array of payments */ ]
   }
 }
+```
 
 ### Sales
 Sale transaction management.
 
-Method	Endpoint	Description	Auth
-GET	/sales	List all sales	Yes
-POST	/sales	Direct sale (without cart)	Yes
-GET	/sales/:sale_uuid	Get sale details	Yes
-GET	/sales/:sale_uuid/invoice	Get invoice details	Yes
-List Sales
-http
-GET /api/sales?page=1&limit=20
-Response 200 OK
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/sales` | List all sales | Yes |
+| POST | `/sales` | Direct sale (without cart) | Yes |
+| GET | `/sales/:sale_uuid` | Get sale details | Yes |
+| GET | `/sales/:sale_uuid/invoice` | Get invoice details | Yes |
 
-json
+List Sales
+
+`GET /api/sales?page=1&limit=20`
+
+Response 200 OK
+```
 {
   "success": true,
   "data": [ /* array of sales */ ],
@@ -606,12 +689,14 @@ json
     "totalPages": 5
   }
 }
-Direct Sale
-http
-POST /api/sales
-Request Body
+```
 
-json
+Direct Sale
+
+`POST /api/sales`
+
+Request Body
+```
 {
   "customer_uuid": "optional-customer-uuid",
   "items": [
@@ -631,12 +716,14 @@ json
     }
   ]
 }
-Get Invoice
-http
-GET /api/sales/:sale_uuid/invoice
-Response 200 OK
+```
 
-json
+Get Invoice
+
+`GET /api/sales/:sale_uuid/invoice`
+
+Response 200 OK
+```
 {
   "shop": {
     "name": "My Shop",
@@ -674,27 +761,39 @@ json
     }
   ]
 }
+```
 ### Customers
 Customer management and credit tracking.
 
-Method	Endpoint	Description	Auth
-GET	/customers	List all customers	Yes
-GET	/customers/search?q=	Search customers	Yes
-GET	/customers/summary	Get credit summary	Yes
-GET	/customers/aging	Get credit aging report	Yes
-GET	/customers/reminders	Get payment reminders	Yes
-POST	/customers	Create customer	Yes
-GET	/customers/:customer_uuid	Get customer details	Yes
-PUT	/customers/:customer_uuid	Update customer	Yes
-DELETE	/customers/:customer_uuid	Delete customer	Yes
-GET	/customers/:customer_uuid/ledger	Get customer ledger	Yes
-POST	/customers/:customer_uuid/payments	Record payment	Yes
-Create Customer
-http
-POST /api/customers
-Request Body
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/customers` | List all customers | Yes |
+| GET | `/customers/search?q=` | Search customers | Yes |
+| GET | `/customers/summary` | Get credit summary | Yes |
+| GET | `/customers/aging` | Get credit aging report | Yes |
+| GET | `/customers/reminders` | Get payment reminders | Yes |
+| POST | `/customers` | Create customer | Yes |
+| GET | `/customers/:customer_uuid` | Get customer details | Yes |
+| PUT | `/customers/:customer_uuid` | Update customer | Yes |
+| DELETE | `/customers/:customer_uuid` | Delete customer | Yes |
+| GET | `/customers/:customer_uuid/ledger` | Get customer ledger | Yes |
+| POST | `/customers/:customer_uuid/payments` | Record payment | Yes |
 
-json
+Create Customer
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| name | string | Yes | Customer name |
+| mobile | string | No | Phone number |
+| address | string | No | Address |
+| gstin | string | No | GST number |
+| credit_limit | number | No | Maximum credit allowed (default: 0) |
+
+
+`POST /api/customers`
+
+Request Body
+```
 {
   "name": "John Doe",
   "mobile": "9876543210",
@@ -702,15 +801,11 @@ json
   "gstin": "GST123456",
   "credit_limit": 10000
 }
-Field	Type	Required	Description
-name	string	Yes	Customer name
-mobile	string	No	Phone number
-address	string	No	Address
-gstin	string	No	GST number
-credit_limit	number	No	Maximum credit allowed (default: 0)
+```
+
 Response 201 Created
 
-json
+```
 {
   "success": true,
   "data": {
@@ -725,22 +820,27 @@ json
     "updated_at": "2024-01-15T10:30:00.000Z"
   }
 }
+
+```
 Record Customer Payment
-http
-POST /api/customers/:customer_uuid/payments
+
+`POST /api/customers/:customer_uuid/payments`
+
 Request Body
 
-json
+```
 {
   "amount": 500.00,
   "method": "cash"
 }
+```
 Get Customer Ledger
-http
-GET /api/customers/:customer_uuid/ledger
+
+`GET /api/customers/:customer_uuid/ledger`
+
 Response 200 OK
 
-json
+```
 {
   "success": true,
   "data": [
@@ -766,12 +866,12 @@ json
     }
   ]
 }
+```
 Get Customer Summary
-http
-GET /api/customers/summary
-Response 200 OK
 
-json
+`GET /api/customers/summary`
+Response 200 OK
+```
 {
   "success": true,
   "data": {
@@ -789,12 +889,14 @@ json
     ]
   }
 }
-Get Aging Report
-http
-GET /api/customers/aging
-Response 200 OK
+```
 
-json
+Get Aging Report
+
+`GET /api/customers/aging`
+
+Response 200 OK
+```
 {
   "success": true,
   "data": [
@@ -810,12 +912,13 @@ json
     }
   ]
 }
+```
 Get Payment Reminders
-http
-GET /api/customers/reminders
-Response 200 OK
 
-json
+`GET /api/customers/reminders`
+
+Response 200 OK
+```
 {
   "success": true,
   "data": [
@@ -827,20 +930,25 @@ json
     }
   ]
 }
-Suppliers
-Supplier/vendor management.
+```
 
-Method	Endpoint	Description	Auth
-GET	/suppliers	List all suppliers	Yes
-POST	/suppliers	Create supplier	Yes
-PUT	/suppliers/:supplier_uuid	Update supplier	Yes
-DELETE	/suppliers/:supplier_uuid	Delete supplier	Yes
+## Suppliers
+
+#### Supplier/vendor management.
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/suppliers` | List all suppliers | Yes |
+| POST | `/suppliers` | Create supplier | Yes |
+| PUT | `/suppliers/:supplier_uuid` | Update supplier | Yes |
+| DELETE | `/suppliers/:supplier_uuid` | Delete supplier | Yes |
+
 List Suppliers
-http
-GET /api/suppliers
-Response 200 OK
 
-json
+`GET /api/suppliers`
+
+Response 200 OK
+```
 [
   {
     "supplier_uuid": "uuid-here",
@@ -852,49 +960,59 @@ json
     "updated_at": "2024-01-15T10:30:00.000Z"
   }
 ]
+```
 Create Supplier
-http
-POST /api/suppliers
-Request Body
 
-json
+`POST /api/suppliers`
+
+Request Body
+```
 {
   "name": "ABC Supplies",
   "phone": "9876543210",
   "email": "abc@supplies.com",
   "address": "123 Business Park, Mumbai"
 }
-Update Supplier
-http
-PUT /api/suppliers/:supplier_uuid
-Request Body (All fields optional)
+```
 
-json
+Update Supplier
+
+`PUT /api/suppliers/:supplier_uuid`
+
+Request Body (All fields optional)
+```
 {
   "name": "Updated Name",
   "phone": "9999999999"
 }
-Delete Supplier
-http
-DELETE /api/suppliers/:supplier_uuid
-Response 200 OK
+```
 
-json
+Delete Supplier
+
+`DELETE /api/suppliers/:supplier_uuid`
+
+Response 200 OK
+```
 {
   "message": "Deleted"
 }
-### Purchases
-Purchase order management.
+```
 
-Method	Endpoint	Description	Auth
-GET	/purchases	List all purchases	Yes
-POST	/purchases	Create purchase	Yes
+## Purchases
+
+### Purchase order management.
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/purchases` | List all purchases | Yes |
+| POST | `/purchases` | Create purchase | Yes |
+
 Create Purchase
-http
-POST /api/purchases
-Request Body
 
-json
+`POST /api/purchases`
+
+Request Body
+```
 {
   "supplier_uuid": "supplier-uuid-here",
   "items": [
@@ -910,15 +1028,18 @@ json
     }
   ]
 }
-Field	Type	Required	Description
-supplier_uuid	UUID	No	Supplier identifier
-items	array	Yes	Array of purchase items
-items[].product_uuid	UUID	Yes	Product identifier
-items[].quantity	number	Yes	Quantity purchased (min: 1)
-items[].cost_price	number	Yes	Cost price per unit (min: 0)
-Response 201 Created
+```
 
-json
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| supplier_uuid | UUID | No | Supplier identifier |
+| items | array | Yes | Array of purchase items |
+| items[].product_uuid | UUID | Yes | Product identifier |
+| items[].quantity | number | Yes | Quantity purchased (min: 1) |
+| items[].cost_price | number | Yes | Cost price per unit (min: 0) |
+
+Response 201 Created
+```
 {
   "success": true,
   "message": "Purchase created",
@@ -944,12 +1065,14 @@ json
     }
   }
 }
-List Purchases
-http
-GET /api/purchases
-Response 200 OK
+```
 
-json
+List Purchases
+
+`GET /api/purchases`
+
+Response 200 OK
+```
 [
   {
     "purchase_uuid": "uuid-here",
@@ -962,19 +1085,30 @@ json
     }
   }
 ]
-Settings
+```
+
+# Settings
 Shop settings management (Owner only for create/update).
 
-Method	Endpoint	Description	Auth	Role
-GET	/settings	Get shop settings	Yes	Any
-POST	/settings	Create/Update settings	Yes	Owner
-PUT	/settings	Update settings	Yes	Owner
-Get Settings
-http
-GET /api/settings
-Response 200 OK
 
-json
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| shop_name | string | Yes | Shop/Store name |
+| mobile | string | No | Contact number |
+| address | string | No | Shop address |
+| gstin | string | No | GST number (India) |
+| invoice_prefix | string | No | Invoice number prefix (default: INV) |
+
+| Method | Endpoint | Description | Auth | Role |
+|--------|----------|-------------|------|------|
+| GET | `/settings` | Get shop settings | Yes | Any |
+| POST | `/settings` | Create/Update settings | Yes | Owner |
+| PUT | `/settings` | Update settings | Yes | Owner |
+
+`GET /api/settings`
+
+Response 200 OK
+```
 {
   "success": true,
   "data": {
@@ -988,12 +1122,14 @@ json
     "updated_at": "2024-01-15T10:30:00.000Z"
   }
 }
-Save/Create Settings
-http
-POST /api/settings
-Request Body
+```
 
-json
+Save/Create Settings
+
+`POST /api/settings`
+
+Request Body
+```
 {
   "shop_name": "My Shop",
   "mobile": "9876543210",
@@ -1001,42 +1137,42 @@ json
   "gstin": "GSTIN123456",
   "invoice_prefix": "INV"
 }
-Field	Type	Required	Description
-shop_name	string	Yes	Shop/Store name
-mobile	string	No	Contact number
-address	string	No	Shop address
-gstin	string	No	GST number (India)
-invoice_prefix	string	No	Invoice number prefix (default: INV)
-Staff
-Staff/user management (Owner only).
+```
 
-Method	Endpoint	Description	Auth	Role
-GET	/staff	List all staff	Yes	Owner
-GET	/staff/summary	Staff summary	Yes	Owner
-GET	/staff/role/:role	Staff by role	Yes	Owner
-POST	/staff	Create staff	Yes	Owner
-PUT	/staff/:user_uuid	Update staff	Yes	Owner
-DELETE	/staff/:user_uuid	Delete staff	Yes	Owner
+| Method | Endpoint | Description | Auth | Role |
+|--------|----------|-------------|------|------|
+| GET | `/staff` | List all staff | Yes | Owner |
+| GET | `/staff/summary` | Staff summary | Yes | Owner |
+| GET | `/staff/role/:role` | Staff by role | Yes | Owner |
+| POST | `/staff` | Create staff | Yes | Owner |
+| PUT | `/staff/:user_uuid` | Update staff | Yes | Owner |
+| DELETE | `/staff/:user_uuid` | Delete staff | Yes | Owner |
+
+# Staff Member
+
 Create Staff Member
-http
-POST /api/staff
-Request Body
 
-json
+`POST /api/staff`
+
+Request Body
+```
 {
   "name": "John Cashier",
   "email": "cashier@test.com",
   "password": "123456",
   "role": "cashier"
 }
-Field	Type	Required	Description
-name	string	Yes	Staff name
-email	string	Yes	Unique email
-password	string	Yes	Password (min: 6 chars)
-role	string	Yes	Role: manager or cashier
-Response 201 Created
+```
 
-json
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| name | string | Yes | Staff name |
+| email | string | Yes | Unique email |
+| password | string | Yes | Password (min: 6 chars) |
+| role | string | Yes | Role: manager or cashier |
+
+Response 201 Created
+```
 {
   "user_uuid": "uuid-here",
   "name": "John Cashier",
@@ -1045,12 +1181,14 @@ json
   "created_at": "2024-01-15T10:30:00.000Z",
   "updated_at": "2024-01-15T10:30:00.000Z"
 }
-List All Staff
-http
-GET /api/staff
-Response 200 OK
+```
 
-json
+List All Staff
+
+`GET /api/staff`
+
+Response 200 OK
+```
 [
   {
     "user_uuid": "uuid-here",
@@ -1061,33 +1199,39 @@ json
     "updated_at": "2024-01-15T10:30:00.000Z"
   }
 ]
-Update Staff Member
-http
-PUT /api/staff/:user_uuid
-Request Body (All fields required for update)
+```
 
-json
+Update Staff Member
+
+`PUT /api/staff/:user_uuid`
+
+Request Body (All fields required for update)
+```
 {
   "name": "John Updated",
   "email": "cashier2@test.com",
   "role": "manager",
   "password": "newpassword"
 }
-Delete Staff Member
-http
-DELETE /api/staff/:user_uuid
-Response 200 OK
+```
 
-json
+Delete Staff Member
+
+`DELETE /api/staff/:user_uuid`
+
+Response 200 OK
+```
 {
   "message": "Staff deleted"
 }
-Staff Summary
-http
-GET /api/staff/summary
-Response 200 OK
+```
 
-json
+Staff Summary
+
+`GET /api/staff/summary`
+
+Response 200 OK
+```
 {
   "staff_by_role": [
     { "role": "manager", "count": 2 },
@@ -1095,29 +1239,34 @@ json
   ],
   "total_staff": 7
 }
+```
+
 Staff by Role
-http
-GET /api/staff/role/cashier
-Reports
+
+`GET /api/staff/role/cashier`
+
+# Reports
 Analytics and reporting endpoints.
 
-Method	Endpoint	Description	Auth
-GET	/reports/dashboard	Dashboard summary	Yes
-GET	/reports/top-products	Top selling products	Yes
-GET	/reports/stock	Stock report	Yes
-GET	/reports/profit	Profit estimation	Yes
-GET	/reports/sales-trend	Sales trend (7 days)	Yes
-GET	/reports/profit-trend	Profit trend (7 days)	Yes
-GET	/reports/sales-by-payment	Sales by payment method	Yes
-GET	/reports/daily-sales	Daily sales summary	Yes
-GET	/reports/product-sales	Product sales report	Yes
-GET	/reports/customer-purchases	Customer purchase history	Yes
-Dashboard
-http
-GET /api/reports/dashboard
-Response 200 OK
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/reports/dashboard` | Dashboard summary | Yes |
+| GET | `/reports/top-products` | Top selling products | Yes |
+| GET | `/reports/stock` | Stock report | Yes |
+| GET | `/reports/profit` | Profit estimation | Yes |
+| GET | `/reports/sales-trend` | Sales trend (7 days) | Yes |
+| GET | `/reports/profit-trend` | Profit trend (7 days) | Yes |
+| GET | `/reports/sales-by-payment` | Sales by payment method | Yes |
+| GET | `/reports/daily-sales` | Daily sales summary | Yes |
+| GET | `/reports/product-sales` | Product sales report | Yes |
+| GET | `/reports/customer-purchases` | Customer purchase history | Yes |
 
-json
+Dashboard
+
+`GET /api/reports/dashboard`
+
+Response 200 OK
+```
 {
   "today_sales": 5000.00,
   "month_sales": 125000.00,
@@ -1133,15 +1282,18 @@ json
   ],
   "recent_purchases": [ /* last 5 purchases */ ]
 }
-Top Products
-http
-GET /api/reports/top-products
-Stock Report
-http
-GET /api/reports/stock
-Response 200 OK
+```
 
-json
+Top Products
+
+`GET /api/reports/top-products`
+
+Stock Report
+
+`GET /api/reports/stock`
+
+Response 200 OK
+```
 [
   {
     "name": "Product A",
@@ -1149,23 +1301,27 @@ json
     "price": 99.99
   }
 ]
-Profit Estimation
-http
-GET /api/reports/profit
-Response 200 OK
+```
 
-json
+Profit Estimation
+
+`GET /api/reports/profit`
+
+Response 200 OK
+```
 {
   "revenue": 1500000.00,
   "cost": 1000000.00,
   "profit": 500000.00
 }
-Sales Trend (Last 7 Days)
-http
-GET /api/reports/sales-trend
-Response 200 OK
+```
 
-json
+Sales Trend (Last 7 Days)
+
+`GET /api/reports/sales-trend`
+
+Response 200 OK
+```
 [
   {
     "date": "2024-01-09",
@@ -1176,12 +1332,14 @@ json
     "total": 7500.00
   }
 ]
-Profit Trend (Last 7 Days)
-http
-GET /api/reports/profit-trend
-Response 200 OK
+```
 
-json
+Profit Trend (Last 7 Days)
+
+`GET /api/reports/profit-trend`
+
+Response 200 OK
+```
 [
   {
     "date": "2024-01-09",
@@ -1190,36 +1348,20 @@ json
     "profit": 2000.00
   }
 ]
-Sales by Payment Method
-http
-GET /api/reports/sales-by-payment?startDate=2024-01-01&endDate=2024-01-31
-Daily Sales Summary
-http
-GET /api/reports/daily-sales?days=30
-Product Sales Report
-http
-GET /api/reports/product-sales?startDate=2024-01-01&endDate=2024-01-31
-Customer Purchase Report
-http
-GET /api/reports/customer-purchases
-Error Codes
-Status Code	Description
-200	OK - Successful request
-201	Created - Resource created successfully
-400	Bad Request - Invalid input/validation error
-401	Unauthorized - Missing or invalid authentication
-403	Forbidden - Insufficient permissions
-404	Not Found - Resource not found
-500	Internal Server Error
-Error Response Format
-json
-{
-  "success": false,
-  "error": "Error message description"
-}
+```
 
-### User Roles
-Role	Description	Permissions
-owner	Shop owner/admin	Full access to all features
-manager	Store manager	Sales, reports, product management
-cashier	Counter staff	POS operations, cart checkout
+Sales by Payment Method
+
+`GET /api/reports/sales-by-payment?startDate=2024-01-01&endDate=2024-01-31`
+
+Daily Sales Summary
+
+`GET /api/reports/daily-sales?days=30`
+
+Product Sales Report
+
+`GET /api/reports/product-sales?startDate=2024-01-01&endDate=2024-01-31`
+
+Customer Purchase Report
+
+`GET /api/reports/customer-purchases`

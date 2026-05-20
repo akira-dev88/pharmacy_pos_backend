@@ -10,6 +10,7 @@ export function runMigrations(): void {
       name TEXT NOT NULL,
       email TEXT NOT NULL UNIQUE,
       password TEXT NOT NULL,
+      pharmacist_registration_number TEXT,
       role TEXT NOT NULL DEFAULT 'cashier',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -158,6 +159,10 @@ export function runMigrations(): void {
       tax REAL NOT NULL,
       grand_total REAL NOT NULL,
       status TEXT NOT NULL DEFAULT 'completed',
+      is_locked INTEGER DEFAULT 0,
+      voided_at TIMESTAMP,
+      voided_by TEXT,
+      void_reason TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (customer_uuid) REFERENCES customers(customer_uuid)
