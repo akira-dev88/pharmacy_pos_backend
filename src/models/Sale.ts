@@ -498,39 +498,88 @@ export class SaleModel {
     // =========================
 
     const items = db.prepare(`
+
     SELECT
 
-      p.name as product_name,
-      p.hsn_code,
+      si.id,
 
-      si.quantity as qty,
+      si.sale_uuid,
+
+      si.product_uuid,
+
+      si.batch_uuid,
+
+      si.quantity,
+
       si.price,
+
       si.total,
 
-      si.gst_percent as tax_percent,
+      si.gst_percent,
 
-      ROUND(
-        (si.total * si.gst_percent) / 100,
-        2
-      ) as tax_amount,
+      si.gst_amount,
 
-      ROUND(
-        ((si.total * si.gst_percent) / 100) / 2,
-        2
-      ) as cgst,
+      si.schedule_type,
 
-      ROUND(
-        ((si.total * si.gst_percent) / 100) / 2,
-        2
-      ) as sgst
+      p.name as product_name,
+
+      p.hsn_code,
+
+      p.manufacturer,
+
+      p.unit,
+
+      pb.batch_number,
+
+      pb.expiry_date
 
     FROM sale_items si
 
-    LEFT JOIN products p
-      ON p.product_uuid = si.product_uuid
+    INNER JOIN products p
+      ON p.product_uuid =
+        si.product_uuid
+
+    LEFT JOIN product_batches pb
+      ON pb.batch_uuid =
+        si.batch_uuid
 
     WHERE si.sale_uuid = ?
-  `).all(saleUuid) as any[];
+`).all(
+      saleUuid
+    ) as Array<{
+
+      id: number;
+
+      sale_uuid: string;
+
+      product_uuid: string;
+
+      batch_uuid: string | null;
+
+      quantity: number;
+
+      price: number;
+
+      total: number;
+
+      gst_percent: number;
+
+      gst_amount: number;
+
+      schedule_type: string;
+
+      product_name: string;
+
+      hsn_code: string | null;
+
+      manufacturer: string | null;
+
+      unit: string;
+
+      batch_number: string | null;
+
+      expiry_date: string | null;
+    }>;
 
     // =========================
     // FETCH PAYMENTS
