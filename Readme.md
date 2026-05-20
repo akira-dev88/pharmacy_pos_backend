@@ -542,17 +542,22 @@ Request Body
 
 json
 {
-  "customer_uuid": "customer-uuid-here",
+  "customer_uuid": "uuid",
   "payments": [
     {
       "method": "cash",
-      "amount": 500.00,
-      "reference": "optional-reference"
-    },
+      "amount": 71.68
+    }
+  ],
+  "prescriptions": [
     {
-      "method": "upi",
-      "amount": 224.18,
-      "reference": "TXN123456"
+      "product_uuid": "uuid",
+      "prescription_number": "RX-1001",
+      "doctor_name": "Dr Kumar",
+      "doctor_license": "TNMC-12345",
+      "patient_name": "Ravi",
+      "patient_age": 32,
+      "patient_gender": "male"
     }
   ]
 }

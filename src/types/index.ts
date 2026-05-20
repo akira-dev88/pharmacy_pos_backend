@@ -547,3 +547,55 @@ export interface CreateStockAdjustmentInput {
 
   performed_by?: string;
 }
+
+export type MedicineReturnType =
+  | 'customer_return'
+  | 'supplier_return';
+
+export interface MedicineReturn {
+
+  return_uuid: string;
+
+  sale_uuid?: string | null;
+
+  sale_item_id?: number | null;
+
+  product_uuid: string;
+
+  batch_uuid: string;
+
+  return_type: MedicineReturnType;
+
+  quantity: number;
+
+  refund_amount: number;
+
+  reason?: string | null;
+
+  performed_by?: string | null;
+
+  created_at: string;
+
+  updated_at: string;
+}
+
+export interface CreateMedicineReturnInput {
+
+  sale_uuid?: string;
+
+  sale_item_id?: number;
+
+  product_uuid: string;
+
+  batch_uuid: string;
+
+  return_type: MedicineReturnType;
+
+  quantity: number;
+
+  refund_amount?: number;
+
+  reason?: string;
+
+  performed_by?: string;
+}

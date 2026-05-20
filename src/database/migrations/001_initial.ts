@@ -420,6 +420,60 @@ export function runMigrations(): void {
   CREATE INDEX IF NOT EXISTS idx_adjustments_type
   ON stock_adjustments(adjustment_type);
 
+  CREATE TABLE IF NOT EXISTS medicine_returns (
+
+    return_uuid TEXT PRIMARY KEY,
+
+    sale_uuid TEXT,
+
+    sale_item_id INTEGER,
+
+    product_uuid TEXT NOT NULL,
+
+    batch_uuid TEXT NOT NULL,
+
+    return_type TEXT NOT NULL,
+
+    quantity REAL NOT NULL,
+
+    refund_amount REAL DEFAULT 0,
+
+    reason TEXT,
+
+    performed_by TEXT,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (sale_uuid)
+      REFERENCES sales(sale_uuid),
+
+    FOREIGN KEY (sale_item_id)
+      REFERENCES sale_items(id),
+
+    FOREIGN KEY (product_uuid)
+      REFERENCES products(product_uuid),
+
+    FOREIGN KEY (batch_uuid)
+      REFERENCES product_batches(batch_uuid),
+
+    FOREIGN KEY (performed_by)
+      REFERENCES users(user_uuid)
+);
+
+CREATE INDEX IF NOT EXISTS idx_returns_sale
+ON medicine_returns(sale_uuid);
+
+CREATE INDEX IF NOT EXISTS idx_returns_product
+ON medicine_returns(product_uuid);
+
+CREATE INDEX IF NOT EXISTS idx_returns_batch
+ON medicine_returns(batch_uuid);
+
+CREATE INDEX IF NOT EXISTS idx_returns_type
+ON medicine_returns(return_type);
+
   `);
 
   console.log('Migrations completed successfully!');

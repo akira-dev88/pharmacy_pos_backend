@@ -35,6 +35,9 @@ from './routes/categories';
 import stockAdjustmentRoutes
   from './routes/stockAdjustmentRoutes';
 
+import medicineReturnRoutes
+  from './routes/medicineReturnRoutes';
+
 // Load environment variables - simplified for CommonJS
 dotenv.config();
 
@@ -114,6 +117,11 @@ app.use(
 app.use(
   '/api/stock-adjustments',
   stockAdjustmentRoutes
+);
+
+app.use(
+  '/api/medicine-returns',
+  medicineReturnRoutes
 );
 
 // Health check
