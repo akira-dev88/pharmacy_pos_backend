@@ -38,6 +38,9 @@ import stockAdjustmentRoutes
 import medicineReturnRoutes
   from './routes/medicineReturnRoutes';
 
+import h1RegisterRoutes
+from './routes/h1RegisterRoutes';
+
 // Load environment variables - simplified for CommonJS
 dotenv.config();
 
@@ -122,6 +125,11 @@ app.use(
 app.use(
   '/api/medicine-returns',
   medicineReturnRoutes
+);
+
+app.use(
+  '/api/h1-register',
+  h1RegisterRoutes
 );
 
 // Health check

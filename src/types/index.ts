@@ -702,3 +702,63 @@ export interface PharmacyInvoice {
     warnings: string[];
   };
 }
+
+export interface H1Register {
+
+  id: number;
+
+  register_uuid: string;
+
+  sale_uuid: string;
+
+  sale_item_id: number;
+
+  product_uuid: string;
+
+  batch_uuid?: string | null;
+
+  prescription_number: string;
+
+  doctor_name: string;
+
+  doctor_license?: string | null;
+
+  patient_name: string;
+
+  patient_age?: number | null;
+
+  patient_gender?: string | null;
+
+  quantity: number;
+
+  pharmacist_name?: string | null;
+
+  created_at: string;
+}
+
+export interface CreateH1RegisterInput {
+
+  sale_uuid: string;
+
+  sale_item_id: number;
+
+  product_uuid: string;
+
+  batch_uuid?: string;
+
+  prescription_number: string;
+
+  doctor_name: string;
+
+  doctor_license?: string;
+
+  patient_name: string;
+
+  patient_age?: number;
+
+  patient_gender?: string;
+
+  quantity: number;
+
+  pharmacist_name?: string;
+}

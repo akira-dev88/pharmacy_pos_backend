@@ -449,17 +449,50 @@ export function runMigrations(): void {
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
 
-CREATE INDEX IF NOT EXISTS idx_returns_sale
-ON medicine_returns(sale_uuid);
+  CREATE INDEX IF NOT EXISTS idx_returns_sale
+  ON medicine_returns(sale_uuid);
 
-CREATE INDEX IF NOT EXISTS idx_returns_product
-ON medicine_returns(product_uuid);
+  CREATE INDEX IF NOT EXISTS idx_returns_product
+  ON medicine_returns(product_uuid);
 
-CREATE INDEX IF NOT EXISTS idx_returns_batch
-ON medicine_returns(batch_uuid);
+  CREATE INDEX IF NOT EXISTS idx_returns_batch
+  ON medicine_returns(batch_uuid);
 
-CREATE INDEX IF NOT EXISTS idx_returns_type
-ON medicine_returns(return_type);
+  CREATE INDEX IF NOT EXISTS idx_returns_type
+  ON medicine_returns(return_type);
+
+  CREATE TABLE IF NOT EXISTS h1_register (
+
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    register_uuid TEXT NOT NULL UNIQUE,
+
+    sale_uuid TEXT NOT NULL,
+
+    sale_item_id INTEGER NOT NULL,
+
+    product_uuid TEXT NOT NULL,
+
+    batch_uuid TEXT,
+
+    prescription_number TEXT NOT NULL,
+
+    doctor_name TEXT NOT NULL,
+
+    doctor_license TEXT,
+
+    patient_name TEXT NOT NULL,
+
+    patient_age INTEGER,
+
+    patient_gender TEXT,
+
+    quantity REAL NOT NULL,
+
+    pharmacist_name TEXT,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
 
   `);
 

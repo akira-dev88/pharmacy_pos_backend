@@ -3,6 +3,7 @@ import type { Sale, SaleItem, Payment, CartWithItems, InvoiceItem, Customer, Set
 import { v4 as uuidv4 } from 'uuid';
 import { ProductBatchModel }
   from './ProductBatch';
+import { H1RegisterModel } from './H1Register';
 
 export class SaleModel {
   // Create sale from cart (checkout) - Fix pattern matching PHP
@@ -213,7 +214,7 @@ export class SaleModel {
             item.tax_percent
           ) / 100;
 
-          insertItem.run(
+          const result = insertItem.run(
 
             saleUuid,
 
@@ -247,6 +248,74 @@ export class SaleModel {
 
             product.schedule_type || 'NONE'
           );
+
+          // =========================
+          // H1 REGISTER ENTRY
+          // =========================
+
+          if (
+            product.schedule_type === 'H1'
+          ) {
+
+            const settings = db.prepare(`
+
+              SELECT pharmacist_name
+
+              FROM settings
+
+              LIMIT 1
+            `).get() as {
+              pharmacist_name?: string;
+            };
+
+            H1RegisterModel.create({
+
+              sale_uuid:
+                saleUuid,
+
+              sale_item_id:
+                Number(
+                  result.lastInsertRowid
+                ),
+
+              product_uuid:
+                item.product_uuid,
+
+              batch_uuid:
+                consumed.batch_uuid,
+
+              prescription_number:
+                prescription!
+                  .prescription_number,
+
+              doctor_name:
+                prescription!
+                  .doctor_name,
+
+              doctor_license:
+                prescription!
+                  .doctor_license,
+
+              patient_name:
+                prescription!
+                  .patient_name,
+
+              patient_age:
+                prescription!
+                  .patient_age,
+
+              patient_gender:
+                prescription!
+                  .patient_gender,
+
+              quantity:
+                consumed.quantity,
+
+              pharmacist_name:
+                settings
+                  .pharmacist_name
+            });
+          }
         }
 
         // Stock ledger entry
