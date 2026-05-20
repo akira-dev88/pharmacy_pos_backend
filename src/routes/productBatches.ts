@@ -12,26 +12,40 @@ const router = Router();
 
 router.use(authenticate);
 
-// CREATE BATCH
+// CREATE
 router.post(
   '/',
   ProductBatchController.create
 );
 
-// GET PRODUCT BATCHES
+// PRODUCT BATCHES
 router.get(
   '/product/:product_uuid',
   ProductBatchController.getByProduct
 );
 
+// AVAILABLE
 router.get(
   '/available/:product_uuid',
   ProductBatchController.available
 );
 
+// FEFO TEST
 router.post(
   '/consume-fefo',
   ProductBatchController.consumeFEFO
+);
+
+// NEAR EXPIRY
+router.get(
+  '/near-expiry',
+  ProductBatchController.nearExpiry
+);
+
+// QUARANTINE
+router.post(
+  '/quarantine-expired',
+  ProductBatchController.quarantineExpired
 );
 
 export default router;

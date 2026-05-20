@@ -104,7 +104,11 @@ export function runMigrations(): void {
 
       quantity REAL NOT NULL DEFAULT 0,
 
+      sold_quantity REAL DEFAULT 0,
+
       free_quantity REAL DEFAULT 0,
+
+      is_quarantined INTEGER DEFAULT 0,
 
       supplier_uuid TEXT,
 

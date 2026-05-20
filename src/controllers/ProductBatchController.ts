@@ -206,54 +206,116 @@ export class ProductBatchController {
   };
 
   // =========================
-// TEST FEFO CONSUMPTION
-// =========================
+  // TEST FEFO CONSUMPTION
+  // =========================
 
-static consumeFEFO = (
-  req: Request,
-  res: Response
-): void => {
+  static consumeFEFO = (
+    req: Request,
+    res: Response
+  ): void => {
 
-  try {
+    try {
 
-    const {
-      product_uuid,
-      quantity
-    } = req.body;
+      const {
+        product_uuid,
+        quantity
+      } = req.body;
 
-    if (
-      !product_uuid ||
-      quantity === undefined
-    ) {
+      if (
+        !product_uuid ||
+        quantity === undefined
+      ) {
+
+        res.status(400).json({
+          success: false,
+          error: 'Missing fields'
+        });
+
+        return;
+      }
+
+      const result =
+        ProductBatchModel
+          .consumeStockFEFO(
+            product_uuid,
+            Number(quantity)
+          );
+
+      res.json({
+        success: true,
+        data: result
+      });
+
+    } catch (error: any) {
+
+      console.error(error);
 
       res.status(400).json({
         success: false,
-        error: 'Missing fields'
+        error: error.message
+      });
+    }
+  };
+
+  // =========================
+  // NEAR EXPIRY
+  // =========================
+
+  static nearExpiry = (
+    req: Request,
+    res: Response
+  ): void => {
+
+    try {
+
+      const data =
+        ProductBatchModel.getNearExpiry();
+
+      res.json({
+        success: true,
+        count: data.length,
+        data
       });
 
-      return;
+    } catch (error) {
+
+      console.error(error);
+
+      res.status(500).json({
+        success: false,
+        error: 'Internal server error'
+      });
     }
+  };
 
-    const result =
-      ProductBatchModel
-        .consumeStockFEFO(
-          product_uuid,
-          Number(quantity)
-        );
+  // =========================
+  // QUARANTINE EXPIRED
+  // =========================
 
-    res.json({
-      success: true,
-      data: result
-    });
+  static quarantineExpired = (
+    req: Request,
+    res: Response
+  ): void => {
 
-  } catch (error: any) {
+    try {
 
-    console.error(error);
+      const affected =
+        ProductBatchModel
+          .quarantineExpired();
 
-    res.status(400).json({
-      success: false,
-      error: error.message
-    });
-  }
-};
+      res.json({
+        success: true,
+        quarantined_batches: affected
+      });
+
+    } catch (error) {
+
+      console.error(error);
+
+      res.status(500).json({
+        success: false,
+        error: 'Internal server error'
+      });
+    }
+  };
 }

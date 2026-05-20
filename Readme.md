@@ -391,7 +391,24 @@ respose
 | ------ | --------- |
 | DOLO-A | 0         |
 | DOLO-B | 7         |
-  
+
+GET /api/product-batches/near-expiry
+
+{
+    "success": true,
+    "count": 1,
+    "data": [
+        {
+            "batch_uuid": "523f50d2-ec76-4c03-aeee-985edb73bf14",
+            "product_uuid": "9b43935c-63b8-492b-8617-c11e5d0dfad1",
+            "product_name": "Dolo 650",
+            "batch_number": "DOLO-A",
+            "expiry_date": "2026-05-30",
+            "remaining_qty": 5,
+            "days_left": 9
+        }
+    ]
+}
 
 --
 ### Carts

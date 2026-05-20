@@ -223,27 +223,31 @@ export interface ProductBatch {
 
   expiry_date: string;
 
-  manufacture_date?: string;
+  manufacture_date?: string | null;
 
   mrp: number;
 
-  ptr?: number;
+  ptr: number;
 
-  rate?: number;
+  rate: number;
 
-  purchase_price?: number;
+  purchase_price: number;
 
-  selling_price?: number;
+  selling_price: number;
 
-  gst_percent?: number;
+  gst_percent: number;
 
   quantity: number;
 
-  free_quantity?: number;
+  sold_quantity: number;
 
-  supplier_uuid?: string;
+  free_quantity: number;
 
-  purchase_uuid?: string;
+  is_quarantined: number;
+
+  supplier_uuid?: string | null;
+
+  purchase_uuid?: string | null;
 
   created_at: string;
 
