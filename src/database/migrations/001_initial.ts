@@ -426,8 +426,6 @@ export function runMigrations(): void {
 
     sale_uuid TEXT,
 
-    sale_item_id INTEGER,
-
     product_uuid TEXT NOT NULL,
 
     batch_uuid TEXT NOT NULL,
@@ -444,23 +442,8 @@ export function runMigrations(): void {
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
-    FOREIGN KEY (sale_uuid)
-      REFERENCES sales(sale_uuid),
-
-    FOREIGN KEY (sale_item_id)
-      REFERENCES sale_items(id),
-
-    FOREIGN KEY (product_uuid)
-      REFERENCES products(product_uuid),
-
-    FOREIGN KEY (batch_uuid)
-      REFERENCES product_batches(batch_uuid),
-
-    FOREIGN KEY (performed_by)
-      REFERENCES users(user_uuid)
-);
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
 
 CREATE INDEX IF NOT EXISTS idx_returns_sale
 ON medicine_returns(sale_uuid);

@@ -558,8 +558,6 @@ export interface MedicineReturn {
 
   sale_uuid?: string | null;
 
-  sale_item_id?: number | null;
-
   product_uuid: string;
 
   batch_uuid: string;
@@ -582,8 +580,6 @@ export interface MedicineReturn {
 export interface CreateMedicineReturnInput {
 
   sale_uuid?: string;
-
-  sale_item_id?: number;
 
   product_uuid: string;
 

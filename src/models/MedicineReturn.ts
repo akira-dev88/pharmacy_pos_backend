@@ -46,6 +46,7 @@ export class MedicineReturnModel {
       } | undefined;
 
       if (!batch) {
+
         throw new Error(
           'Batch not found'
         );
@@ -55,19 +56,21 @@ export class MedicineReturnModel {
         batch.product_uuid !==
         input.product_uuid
       ) {
+
         throw new Error(
           'Batch-product mismatch'
         );
       }
 
       if (input.quantity <= 0) {
+
         throw new Error(
           'Quantity must be greater than zero'
         );
       }
 
       // =========================
-      // EXPIRED RETURN BLOCK
+      // EXPIRED BLOCK
       // =========================
 
       const today = new Date()
@@ -77,8 +80,9 @@ export class MedicineReturnModel {
       if (
         batch.expiry_date <= today
       ) {
+
         throw new Error(
-          'Expired medicine cannot be returned to saleable stock'
+          'Expired medicine cannot be restored'
         );
       }
 
@@ -89,13 +93,14 @@ export class MedicineReturnModel {
       if (
         Number(batch.is_quarantined) === 1
       ) {
+
         throw new Error(
           'Quarantined batch cannot accept returns'
         );
       }
 
       // =========================
-      // VALIDATE SALE ITEM
+      // CUSTOMER RETURN VALIDATION
       // =========================
 
       if (
@@ -103,50 +108,98 @@ export class MedicineReturnModel {
         'customer_return'
       ) {
 
-        if (
-          !input.sale_uuid ||
-          !input.sale_item_id
-        ) {
+        if (!input.sale_uuid) {
+
           throw new Error(
-            'Sale reference required'
+            'sale_uuid required'
           );
         }
 
-        const saleItem = db.prepare(`
+        // =========================
+        // SOLD QTY
+        // =========================
 
-          SELECT *
+        const sold = db.prepare(`
+
+          SELECT
+
+            COALESCE(
+              SUM(quantity),
+              0
+            ) as sold_qty
 
           FROM sale_items
 
           WHERE
 
-            id = ?
+            sale_uuid = ?
 
-            AND sale_uuid = ?
-
-            AND batch_uuid = ?
+            AND product_uuid = ?
         `).get(
-
-          input.sale_item_id,
 
           input.sale_uuid,
 
-          input.batch_uuid
+          input.product_uuid
 
         ) as {
-          quantity: number;
-        } | undefined;
+          sold_qty: number;
+        };
 
-        if (!saleItem) {
+        if (
+          Number(sold.sold_qty) <= 0
+        ) {
+
           throw new Error(
-            'Sale item not found'
+            'Medicine not found in sale'
           );
         }
 
+        // =========================
+        // ALREADY RETURNED
+        // =========================
+
+        const returned = db.prepare(`
+
+          SELECT
+
+            COALESCE(
+              SUM(quantity),
+              0
+            ) as returned_qty
+
+          FROM medicine_returns
+
+          WHERE
+
+            sale_uuid = ?
+
+            AND product_uuid = ?
+
+            AND return_type =
+              'customer_return'
+        `).get(
+
+          input.sale_uuid,
+
+          input.product_uuid
+
+        ) as {
+          returned_qty: number;
+        };
+
+        const remainingReturnable =
+
+          Number(sold.sold_qty)
+
+          -
+
+          Number(returned.returned_qty);
+
         if (
           input.quantity >
-          Number(saleItem.quantity)
+          remainingReturnable
         ) {
+
           throw new Error(
             'Return quantity exceeds sold quantity'
           );
@@ -154,7 +207,7 @@ export class MedicineReturnModel {
       }
 
       // =========================
-      // RESTORE BATCH STOCK
+      // RESTORE STOCK
       // =========================
 
       ProductBatchModel.updateQuantity(
@@ -175,8 +228,6 @@ export class MedicineReturnModel {
 
           sale_uuid,
 
-          sale_item_id,
-
           product_uuid,
 
           batch_uuid,
@@ -193,15 +244,13 @@ export class MedicineReturnModel {
 
         ) VALUES (
 
-          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+          ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
       `).run(
 
         returnUuid,
 
         input.sale_uuid || null,
-
-        input.sale_item_id || null,
 
         input.product_uuid,
 
@@ -254,10 +303,11 @@ export class MedicineReturnModel {
       );
 
       // =========================
-      // PAYMENT REVERSAL
+      // PAYMENT REFUND ENTRY
       // =========================
 
       if (
+
         input.return_type ===
         'customer_return'
 
@@ -268,47 +318,35 @@ export class MedicineReturnModel {
         &&
 
         input.refund_amount > 0
+
+        &&
+
+        input.sale_uuid
       ) {
 
         db.prepare(`
 
-          INSERT INTO payments (
+      INSERT INTO payments (
 
-            payment_uuid,
+        sale_uuid,
 
-            sale_uuid,
+        method,
 
-            method,
+        amount
 
-            amount,
+      ) VALUES (
 
-            type,
-
-            note
-
-          ) VALUES (
-
-            lower(hex(randomblob(16))),
-
-            ?,
-
-            'refund',
-
-            ?,
-
-            'refund',
-
-            ?
-          )
-        `).run(
+        ?, ?, ?
+      )
+    `).run(
 
           input.sale_uuid,
 
+          'refund',
+
           -Math.abs(
             input.refund_amount
-          ),
-
-          `Medicine return refund`
+          )
         );
       }
 
