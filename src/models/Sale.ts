@@ -9,7 +9,13 @@ export class SaleModel {
   static createFromCart(
     cartData: CartWithItems,
     customerUuid: string | null,
-    payments: Array<{ method: string; amount: number; reference?: string }>
+    payments: Array<{
+      method: string;
+      amount: number;
+      reference?: string;
+    }>,
+    prescriptions: any[] = [],
+    currentUser?: any
   ): { sale: Sale; paid: number; balance: number } {
     const saleUuid = uuidv4();
 
@@ -19,6 +25,12 @@ export class SaleModel {
 
       // Calculate totals from cart items
       for (const item of cartData.items) {
+
+        const prescription =
+          prescriptions.find(
+            p => p.product_uuid === item.product_uuid
+          );
+
         const itemTotal = item.price * item.quantity;
         const taxAmount = (itemTotal * item.tax_percent) / 100;
 
@@ -32,6 +44,87 @@ export class SaleModel {
 
         if (!product || product.stock < item.quantity) {
           throw new Error(`Insufficient stock for ${product?.name || 'product'}`);
+        }
+
+        // =========================
+        // SCHEDULE H
+        // =========================
+
+        if (
+          product.schedule_type === 'H'
+        ) {
+
+          if (
+            !prescription ||
+            !prescription.prescription_number
+          ) {
+            throw new Error(
+              `${product.name} requires prescription`
+            );
+          }
+        }
+
+        // =========================
+        // SCHEDULE H1
+        // =========================
+
+        if (
+          product.schedule_type === 'H1'
+        ) {
+
+          if (
+            !prescription ||
+            !prescription.prescription_number
+          ) {
+            throw new Error(
+              `${product.name}: prescription required`
+            );
+          }
+
+          if (!prescription.doctor_name) {
+            throw new Error(
+              `${product.name}: doctor_name required`
+            );
+          }
+
+          if (!prescription.patient_name) {
+            throw new Error(
+              `${product.name}: patient_name required`
+            );
+          }
+        }
+
+        // =========================
+        // SCHEDULE X
+        // =========================
+
+        if (
+          product.schedule_type === 'X'
+        ) {
+
+          if (
+            !currentUser ||
+            currentUser.role !== 'admin'
+          ) {
+            throw new Error(
+              `Only pharmacist/admin can sell ${product.name}`
+            );
+          }
+
+          if (
+            !prescription ||
+            !prescription.prescription_number
+          ) {
+            throw new Error(
+              `${product.name}: prescription required`
+            );
+          }
+
+          if (!prescription.doctor_license) {
+            throw new Error(
+              `${product.name}: doctor license required`
+            );
+          }
         }
 
       }
@@ -59,14 +152,52 @@ export class SaleModel {
       // Create sale items
       const insertItem = db.prepare(`
         INSERT INTO sale_items (
-        sale_uuid, product_uuid, 
-        batch_uuid, quantity, 
-        price, tax_percent,
-        tax_amount) VALUES (?, ?, ?, ?, ?, ?, ?)
+
+          sale_uuid,
+          product_uuid,
+          batch_uuid,
+
+          quantity,
+          price,
+          total,
+
+          gst_percent,
+
+          prescription_required,
+          prescription_number,
+
+          doctor_name,
+          doctor_license,
+
+          patient_name,
+          patient_age,
+          patient_gender,
+
+          schedule_type
+
+        ) VALUES (
+
+          ?, ?, ?,
+          ?, ?, ?,
+          ?, ?, ?,
+          ?, ?, ?,
+          ?, ?, ?
+        )
       `);
 
       for (const item of cartData.items) {
-        const itemTaxAmount = (item.price * item.quantity * item.tax_percent) / 100;
+
+        const product = db.prepare(
+          'SELECT * FROM products WHERE product_uuid = ?'
+        ).get(item.product_uuid) as any;
+
+        const prescription =
+          prescriptions.find(
+            p => p.product_uuid === item.product_uuid
+          );
+
+        const itemTaxAmount =
+          (item.price * item.quantity * item.tax_percent) / 100;
 
         const consumedBatches =
           ProductBatchModel.consumeStockFEFO(
@@ -94,11 +225,27 @@ export class SaleModel {
 
             item.price,
 
+            Math.round(
+              item.price * consumed.quantity * 100
+            ) / 100,
+
             item.tax_percent,
 
-            Math.round(
-              proportionalTax * 100
-            ) / 100
+            product.prescription_required || 0,
+
+            prescription?.prescription_number || null,
+
+            prescription?.doctor_name || null,
+
+            prescription?.doctor_license || null,
+
+            prescription?.patient_name || null,
+
+            prescription?.patient_age || null,
+
+            prescription?.patient_gender || null,
+
+            product.schedule_type || 'NONE'
           );
         }
 
@@ -325,90 +472,191 @@ export class SaleModel {
   }
 
   // Get invoice details - Pattern matching PHP invoice method
+  // Get invoice details - Pattern matching PHP invoice method
   static getInvoice(saleUuid: string): any {
-    const sale = db.prepare(`
-      SELECT s.*, c.name as customer_name, c.mobile as customer_mobile
-      FROM sales s
-      LEFT JOIN customers c ON s.customer_uuid = c.customer_uuid
-      WHERE s.sale_uuid = ?
-    `).get(saleUuid) as any;
 
-    if (!sale) return null;
+    const sale = db.prepare(`
+    SELECT
+      s.*,
+      c.name as customer_name,
+      c.mobile as customer_mobile
+
+    FROM sales s
+
+    LEFT JOIN customers c
+      ON s.customer_uuid = c.customer_uuid
+
+    WHERE s.sale_uuid = ?
+  `).get(saleUuid) as any;
+
+    if (!sale) {
+      return null;
+    }
+
+    // =========================
+    // FETCH SALE ITEMS
+    // =========================
 
     const items = db.prepare(`
-  SELECT si.*, p.name as product_name, p.hsn_code
-  FROM sale_items si
-  LEFT JOIN products p ON si.product_uuid = p.product_uuid
-  WHERE si.sale_uuid = ?
-`).all(saleUuid) as any[];
+    SELECT
 
-    const payments = db.prepare(
-      'SELECT method, amount FROM payments WHERE sale_uuid = ?'
-    ).all(saleUuid) as any[];
+      p.name as product_name,
+      p.hsn_code,
 
-    const settings = db.prepare('SELECT * FROM settings LIMIT 1').get() as any;
+      si.quantity as qty,
+      si.price,
+      si.total,
+
+      si.gst_percent as tax_percent,
+
+      ROUND(
+        (si.total * si.gst_percent) / 100,
+        2
+      ) as tax_amount,
+
+      ROUND(
+        ((si.total * si.gst_percent) / 100) / 2,
+        2
+      ) as cgst,
+
+      ROUND(
+        ((si.total * si.gst_percent) / 100) / 2,
+        2
+      ) as sgst
+
+    FROM sale_items si
+
+    LEFT JOIN products p
+      ON p.product_uuid = si.product_uuid
+
+    WHERE si.sale_uuid = ?
+  `).all(saleUuid) as any[];
+
+    // =========================
+    // FETCH PAYMENTS
+    // =========================
+
+    const payments = db.prepare(`
+    SELECT
+      method,
+      amount
+
+    FROM payments
+
+    WHERE sale_uuid = ?
+  `).all(saleUuid) as any[];
+
+    // =========================
+    // FETCH SETTINGS
+    // =========================
+
+    const settings = db.prepare(`
+    SELECT *
+    FROM settings
+    LIMIT 1
+  `).get() as any;
+
+    // =========================
+    // BUILD INVOICE ITEMS
+    // =========================
 
     let total = 0;
     let taxTotal = 0;
-    const invoiceItems = [];
 
-    for (const item of items) {
-      const price = Number(item.price);
-      const qty = Number(item.quantity);
-      const taxPercent = Number(item.tax_percent);
+    const invoiceItems = items.map((item: any) => {
 
-      const base = price * qty;
-      const tax = (base * taxPercent) / 100;
+      const qty = Number(item.qty || 0);
 
-      invoiceItems.push({
+      const price = Number(item.price || 0);
+
+      const itemTotal = Number(item.total || 0);
+
+      const taxPercent = Number(item.tax_percent || 0);
+
+      const taxAmount = Number(item.tax_amount || 0);
+
+      const cgst = Number(item.cgst || 0);
+
+      const sgst = Number(item.sgst || 0);
+
+      total += itemTotal;
+      taxTotal += taxAmount;
+
+      return {
         name: item.product_name,
         hsn_code: item.hsn_code || null,
-        qty: qty,
-        price: price,
-        total: Math.round(base * 100) / 100,
+
+        qty,
+
+        price,
+
+        total: Math.round(itemTotal * 100) / 100,
+
         tax_percent: taxPercent,
-        tax_amount: Math.round(tax * 100) / 100,
-        cgst: Math.round((tax / 2) * 100) / 100,
-        sgst: Math.round((tax / 2) * 100) / 100
-      });
 
-      total += base;
-      taxTotal += tax;
-    }
+        tax_amount: Math.round(taxAmount * 100) / 100,
 
-    // GST Split (India)
+        cgst: Math.round(cgst * 100) / 100,
+
+        sgst: Math.round(sgst * 100) / 100
+      };
+    });
+
+    // =========================
+    // GST SPLIT
+    // =========================
+
     const cgst = taxTotal / 2;
+
     const sgst = taxTotal / 2;
 
+    // =========================
+    // FINAL RESPONSE
+    // =========================
+
     return {
-      shop: settings ? {
-        name: settings.shop_name,
-        mobile: settings.mobile,
-        address: settings.address,
-        gstin: settings.gstin,
-      } : null,
+
+      shop: settings
+        ? {
+          name: settings.shop_name,
+          mobile: settings.mobile,
+          address: settings.address,
+          gstin: settings.gstin
+        }
+        : null,
 
       invoice_number: sale.invoice_number,
+
       date: sale.created_at,
 
-      customer: sale.customer_name ? {
-        name: sale.customer_name,
-        mobile: sale.customer_mobile
-      } : null,
+      customer: sale.customer_name
+        ? {
+          name: sale.customer_name,
+          mobile: sale.customer_mobile
+        }
+        : {
+          name: 'Walk In Customer',
+          mobile: null
+        },
 
       items: invoiceItems,
 
       summary: {
         total: Math.round(total * 100) / 100,
+
         tax: Math.round(taxTotal * 100) / 100,
+
         cgst: Math.round(cgst * 100) / 100,
+
         sgst: Math.round(sgst * 100) / 100,
-        grand_total: sale.grand_total
+
+        grand_total:
+          Math.round(Number(sale.grand_total || 0) * 100) / 100
       },
 
-      payments: payments.map(p => ({
-        method: p.method,
-        amount: p.amount
+      payments: payments.map((payment: any) => ({
+        method: payment.method,
+        amount: Number(payment.amount || 0)
       }))
     };
   }

@@ -1,12 +1,12 @@
 import db from '../database/connection';
-import type { Cart, CartItem, CartWithItems, CartSummary} from '../types/index';
+import type { Cart, CartItem, CartWithItems, CartSummary } from '../types/index';
 import { v4 as uuidv4 } from 'uuid';
 
 export class CartModel {
   // Create new cart
   static create(): Cart {
     const uuid = uuidv4();
-    
+
     const stmt = db.prepare(`
       INSERT INTO carts (cart_uuid, status, discount)
       VALUES (?, 'active', 0.00)
@@ -35,7 +35,8 @@ export class CartModel {
         p.barcode as product_barcode,
         p.sku as product_sku,
         p.gst_percent as product_gst_percent,
-        p.stock as product_stock
+        p.stock as product_stock,
+        p.unit as product_unit
       FROM cart_items ci
       LEFT JOIN products p ON ci.product_uuid = p.product_uuid
       WHERE ci.cart_uuid = ?
@@ -45,6 +46,7 @@ export class CartModel {
       product_sku: string;
       product_gst_percent: number;
       product_stock: number;
+      product_unit: string;
     })[];
 
     // Calculate summary
@@ -66,6 +68,7 @@ export class CartModel {
         name: item.product_name,
         barcode: item.product_barcode,
         sku: item.product_sku,
+        unit: item.product_unit,
         price: item.price,
         gst_percent: item.product_gst_percent,
         stock: item.product_stock,
@@ -138,7 +141,7 @@ export class CartModel {
       `);
 
       const result = stmt.run(cartUuid, productUuid, quantity, price, taxPercent);
-      
+
       return db.prepare('SELECT * FROM cart_items WHERE id = ?').get(result.lastInsertRowid) as CartItem;
     }
   }

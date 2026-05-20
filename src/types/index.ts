@@ -362,6 +362,21 @@ export interface SaleItem {
   price: number;
   tax_percent: number;
   tax_amount: number;
+  prescription_required?: number;
+
+  prescription_number?: string;
+
+  doctor_name?: string;
+
+  doctor_license?: string;
+
+  patient_name?: string;
+
+  patient_age?: number;
+
+  patient_gender?: string;
+
+  schedule_type?: string;
   created_at: string;
   updated_at: string;
 }

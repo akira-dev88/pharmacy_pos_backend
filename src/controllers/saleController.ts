@@ -11,7 +11,7 @@ export class SaleController {
   static checkout = (req: AuthRequest, res: Response): void => {
     try {
       const cartUuid = String(req.params.cart_uuid);
-      const { customer_uuid, payments } = req.body;
+      const { customer_uuid, payments, prescriptions = [] } = req.body;
 
       // Get cart with items
       const cart = CartModel.findWithItems(cartUuid);
@@ -68,7 +68,9 @@ export class SaleController {
       const sale = SaleModel.createFromCart(
         cart,
         customer_uuid || null,
-        payments
+        payments,
+        prescriptions,
+        req.user
       );
 
       // Get full invoice data including shop info, items, GST breakdown
