@@ -9,6 +9,7 @@ import type {
 
 import { ProductBatchModel }
   from './ProductBatch';
+import { AuditLogModel } from './AuditLog';
 
 export class StockAdjustmentModel {
 
@@ -148,6 +149,36 @@ export class StockAdjustmentModel {
 
         input.performed_by || null
       );
+
+      AuditLogModel.create({
+
+        action_type:
+          'stock_adjustment',
+
+        entity_type:
+          'stock_adjustment',
+
+        entity_uuid:
+          adjustmentUuid,
+
+        user_uuid:
+          input.performed_by,
+
+        details: JSON.stringify({
+
+          adjustment_type:
+            input.adjustment_type,
+
+          product_uuid:
+            input.product_uuid,
+
+          batch_uuid:
+            input.batch_uuid,
+
+          quantity:
+            input.quantity
+        })
+      });
 
       // =========================
       // STOCK LEDGER

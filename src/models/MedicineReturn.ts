@@ -11,6 +11,10 @@ import {
   ProductBatchModel
 } from './ProductBatch';
 
+import {
+  AuditLogModel
+} from './AuditLog';
+
 export class MedicineReturnModel {
 
   // =========================
@@ -360,6 +364,44 @@ export class MedicineReturnModel {
     });
 
     transaction();
+    
+    AuditLogModel.create({
+
+      action_type:
+        input.return_type ===
+          'customer_return'
+
+          ? 'customer_return'
+
+          : 'supplier_return',
+
+      entity_type:
+        'medicine_return',
+
+      entity_uuid:
+        returnUuid,
+
+      reference_uuid:
+        input.sale_uuid,
+
+      user_uuid:
+        input.performed_by,
+
+      details: JSON.stringify({
+
+        product_uuid:
+          input.product_uuid,
+
+        batch_uuid:
+          input.batch_uuid,
+
+        quantity:
+          input.quantity,
+
+        refund_amount:
+          input.refund_amount
+      })
+    });
 
     return this.findById(
       returnUuid

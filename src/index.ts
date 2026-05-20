@@ -41,6 +41,9 @@ import medicineReturnRoutes
 import h1RegisterRoutes
 from './routes/h1RegisterRoutes';
 
+import auditLogRoutes
+from './routes/auditLogRoutes';
+
 // Load environment variables - simplified for CommonJS
 dotenv.config();
 
@@ -130,6 +133,11 @@ app.use(
 app.use(
   '/api/h1-register',
   h1RegisterRoutes
+);
+
+app.use(
+  '/api/audit-logs',
+  auditLogRoutes
 );
 
 // Health check

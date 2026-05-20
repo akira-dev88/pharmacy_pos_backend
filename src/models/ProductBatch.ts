@@ -6,6 +6,7 @@ import type {
   ProductBatch,
   ProductBatchCreateInput
 } from '../types';
+import { AuditLogModel } from './AuditLog';
 
 export class ProductBatchModel {
 
@@ -279,9 +280,9 @@ export class ProductBatchModel {
       operation === 'subtract'
         ? batch.sold_quantity + quantity
         : Math.max(
-            batch.sold_quantity - quantity,
-            0
-          );
+          batch.sold_quantity - quantity,
+          0
+        );
 
     db.prepare(`
 
@@ -456,43 +457,60 @@ export class ProductBatchModel {
 
     const expiredBatches = db.prepare(`
 
-      SELECT
-        batch_uuid,
-        product_uuid
+    SELECT
 
-      FROM product_batches
+      batch_uuid,
 
-      WHERE
+      product_uuid,
 
-        expiry_date <= DATE('now')
+      expiry_date
 
-        AND is_quarantined = 0
-    `).all() as Array<{
+    FROM product_batches
+
+    WHERE
+
+      expiry_date <= DATE('now')
+
+      AND is_quarantined = 0
+  `).all() as Array<{
+
       batch_uuid: string;
+
       product_uuid: string;
+
+      expiry_date: string;
     }>;
+
+    // =========================
+    // UPDATE QUARANTINE
+    // =========================
 
     const result = db.prepare(`
 
-      UPDATE product_batches
+    UPDATE product_batches
 
-      SET
+    SET
 
-        is_quarantined = 1,
+      is_quarantined = 1,
 
-        updated_at = CURRENT_TIMESTAMP
+      updated_at = CURRENT_TIMESTAMP
 
-      WHERE
+    WHERE
 
-        expiry_date <= DATE('now')
+      expiry_date <= DATE('now')
 
-        AND is_quarantined = 0
-    `).run();
+      AND is_quarantined = 0
+  `).run();
+
+    // =========================
+    // RECALCULATE STOCK
+    // =========================
 
     const affectedProducts =
       new Set<string>();
 
     for (const batch of expiredBatches) {
+
       affectedProducts.add(
         batch.product_uuid
       );
@@ -503,6 +521,31 @@ export class ProductBatchModel {
       this.recalculateProductStock(
         productUuid
       );
+    }
+
+    // =========================
+    // AUDIT LOGS
+    // =========================
+
+    for (const batch of expiredBatches) {
+
+      AuditLogModel.create({
+
+        action_type:
+          'batch_quarantined',
+
+        entity_type:
+          'product_batch',
+
+        entity_uuid:
+          batch.batch_uuid,
+
+        details: JSON.stringify({
+
+          expiry_date:
+            batch.expiry_date
+        })
+      });
     }
 
     return result.changes;

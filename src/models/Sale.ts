@@ -4,6 +4,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { ProductBatchModel }
   from './ProductBatch';
 import { H1RegisterModel } from './H1Register';
+import {
+  AuditLogModel
+} from './AuditLog';
 
 export class SaleModel {
   // Create sale from cart (checkout) - Fix pattern matching PHP
@@ -102,6 +105,36 @@ export class SaleModel {
         if (
           product.schedule_type === 'X'
         ) {
+
+          AuditLogModel.create({
+
+            action_type:
+              'schedule_x_sale',
+
+            entity_type:
+              'sale_item',
+
+            entity_uuid:
+              product.product_uuid,
+
+            reference_uuid:
+              saleUuid,
+
+            user_uuid:
+              currentUser?.user_uuid,
+
+            details: JSON.stringify({
+
+              product_name:
+                product.name,
+
+              doctor_license:
+                prescription?.doctor_license,
+
+              prescription_number:
+                prescription?.prescription_number
+            })
+          });
 
           if (
             !currentUser ||
@@ -315,6 +348,43 @@ export class SaleModel {
                 settings
                   .pharmacist_name
             });
+
+            AuditLogModel.create({
+
+              action_type:
+                'schedule_h1_sale',
+
+              entity_type:
+                'sale_item',
+
+              entity_uuid:
+                String(
+                  result.lastInsertRowid
+                ),
+
+              reference_uuid:
+                saleUuid,
+
+              user_uuid:
+                currentUser?.user_uuid,
+
+              details: JSON.stringify({
+
+                product_uuid:
+                  item.product_uuid,
+
+                batch_uuid:
+                  consumed.batch_uuid,
+
+                prescription_number:
+                  prescription!
+                    .prescription_number,
+
+                patient_name:
+                  prescription!
+                    .patient_name
+              })
+            });
           }
         }
 
@@ -332,6 +402,36 @@ export class SaleModel {
         INSERT INTO payments (sale_uuid, method, amount, reference)
         VALUES (?, ?, ?, ?)
       `);
+
+      AuditLogModel.create({
+
+        action_type:
+          'sale_created',
+
+        entity_type:
+          'sale',
+
+        entity_uuid:
+          saleUuid,
+
+        reference_uuid:
+          saleUuid,
+
+        user_uuid:
+          currentUser?.user_uuid,
+
+        details: JSON.stringify({
+
+          invoice_number:
+            invoiceNumber,
+
+          customer_uuid:
+            customerUuid,
+
+          grand_total:
+            grandTotal
+        })
+      });
 
       for (const payment of payments) {
         insertPayment.run(

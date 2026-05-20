@@ -494,6 +494,29 @@ export function runMigrations(): void {
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
 
+  CREATE TABLE IF NOT EXISTS audit_logs (
+
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    audit_uuid TEXT NOT NULL UNIQUE,
+
+    action_type TEXT NOT NULL,
+
+    entity_type TEXT NOT NULL,
+
+    entity_uuid TEXT,
+
+    reference_uuid TEXT,
+
+    user_uuid TEXT,
+
+    details TEXT,
+
+    ip_address TEXT,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+
   `);
 
   console.log('Migrations completed successfully!');

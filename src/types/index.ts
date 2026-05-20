@@ -762,3 +762,56 @@ export interface CreateH1RegisterInput {
 
   pharmacist_name?: string;
 }
+
+export type AuditActionType =
+
+  | 'sale_created'
+  | 'sale_return'
+  | 'stock_adjustment'
+  | 'batch_quarantined'
+  | 'schedule_h1_sale'
+  | 'schedule_x_sale'
+  | 'manual_stock_edit'
+  | 'customer_return'
+  | 'supplier_return'
+  | 'payment_refund';
+
+export interface AuditLog {
+
+  id: number;
+
+  audit_uuid: string;
+
+  action_type: AuditActionType;
+
+  entity_type: string;
+
+  entity_uuid?: string | null;
+
+  reference_uuid?: string | null;
+
+  user_uuid?: string | null;
+
+  details?: string | null;
+
+  ip_address?: string | null;
+
+  created_at: string;
+}
+
+export interface CreateAuditLogInput {
+
+  action_type: AuditActionType;
+
+  entity_type: string;
+
+  entity_uuid?: string;
+
+  reference_uuid?: string;
+
+  user_uuid?: string;
+
+  details?: string;
+
+  ip_address?: string;
+}
