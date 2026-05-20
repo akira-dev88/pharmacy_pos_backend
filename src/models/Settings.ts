@@ -105,18 +105,44 @@ export class SettingsModel {
   }
 
   // Update specific fields
-  static update(data: Partial<Setting>): Setting | undefined {
-    const existing = db.prepare('SELECT * FROM settings LIMIT 1').get() as Setting | undefined;
+  static update(
+    updates: Partial<Setting>
+  ): Setting {
 
-    if (!existing) return undefined;
+    const fields: string[] = [];
 
-    return this.save({
-      shop_name: data.shop_name || existing.shop_name,
-      mobile: data.mobile,
-      address: data.address,
-      gstin: data.gstin,
-      invoice_prefix: data.invoice_prefix,
-      auto_print: undefined
-    });
+    const values: unknown[] = [];
+
+    for (const [key, value] of Object.entries(updates)) {
+
+      if (value !== undefined) {
+
+        fields.push(`${key} = ?`);
+
+        values.push(value);
+      }
+    }
+
+    if (!fields.length) {
+
+      throw new Error(
+        'No fields to update'
+      );
+    }
+
+    fields.push(
+      'updated_at = CURRENT_TIMESTAMP'
+    );
+
+    db.prepare(`
+
+    UPDATE settings
+
+    SET ${fields.join(', ')}
+
+    WHERE id = 1
+  `).run(...values);
+
+    return this.get()!;
   }
 }

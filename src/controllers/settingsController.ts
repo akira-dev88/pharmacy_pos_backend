@@ -69,31 +69,38 @@ export class SettingsController {
   };
 
   // UPDATE settings (explicit update)
-  static update = (req: AuthRequest, res: Response): void => {
-    try {
-      const updates = req.body;
-      const settings = SettingsModel.update(updates);
+  static update(
+    req: Request,
+    res: Response
+  ): void {
 
-      if (!settings) {
-        res.status(404).json({
-          success: false,
-          message: 'Settings not found'
-        });
-        return;
-      }
+    try {
+
+      const setting =
+        SettingsModel.update(
+          req.body
+        );
 
       res.json({
+
         success: true,
-        data: settings
+
+        data: setting
       });
+
     } catch (error) {
-      console.error('Update settings error:', error);
-      res.status(500).json({
+
+      res.status(400).json({
+
         success: false,
-        error: 'Internal server error'
+
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to update settings'
       });
     }
-  };
+  }
 
   // In backup method, remove the parameter since your createBackup has a default parameter
   static backup = async (req: AuthRequest, res: Response): Promise<void> => {

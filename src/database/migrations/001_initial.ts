@@ -22,6 +22,10 @@ export function runMigrations(): void {
       address TEXT,
       gstin TEXT,
       invoice_prefix TEXT NOT NULL DEFAULT 'INV',
+      drug_license_number TEXT,
+      drug_license_valid_upto TEXT,
+      pharmacist_name TEXT,
+      pharmacist_registration_number TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );

@@ -466,9 +466,16 @@ export interface Setting {
   address?: string;
   gstin?: string;
   invoice_prefix: string;
+  auto_print?: number;
+  // =========================
+  // PHARMACY COMPLIANCE
+  // =========================
+  drug_license_number?: string;
+  drug_license_valid_upto?: string;
+  pharmacist_name?: string;
+  pharmacist_registration_number?: string;
   created_at: string;
   updated_at: string;
-  auto_print?: number;
 }
 
 export interface Cart {
