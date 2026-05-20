@@ -1,5 +1,5 @@
 import db from '../database/connection';
-import type { Sale, SaleItem, Payment, CartWithItems } from '../types/index';
+import type { Sale, SaleItem, Payment, CartWithItems, InvoiceItem, Customer, Setting, PharmacyInvoice } from '../types/index';
 import { v4 as uuidv4 } from 'uuid';
 import { ProductBatchModel }
   from './ProductBatch';
@@ -473,28 +473,68 @@ export class SaleModel {
 
   // Get invoice details - Pattern matching PHP invoice method
   // Get invoice details - Pattern matching PHP invoice method
-  static getInvoice(saleUuid: string): any {
+  static getInvoice(
+    saleUuid: string
+  ): PharmacyInvoice {
+
+    // =========================
+    // SALE
+    // =========================
 
     const sale = db.prepare(`
-    SELECT
-      s.*,
-      c.name as customer_name,
-      c.mobile as customer_mobile
 
-    FROM sales s
+    SELECT *
 
-    LEFT JOIN customers c
-      ON s.customer_uuid = c.customer_uuid
+    FROM sales
 
-    WHERE s.sale_uuid = ?
-  `).get(saleUuid) as any;
+    WHERE sale_uuid = ?
+  `).get(
+      saleUuid
+    ) as Sale | undefined;
 
     if (!sale) {
-      return null;
+
+      throw new Error(
+        'Sale not found'
+      );
     }
 
     // =========================
-    // FETCH SALE ITEMS
+    // SETTINGS
+    // =========================
+
+    const settings = db.prepare(`
+
+    SELECT *
+
+    FROM settings
+
+    LIMIT 1
+  `).get() as Setting;
+
+    // =========================
+    // CUSTOMER
+    // =========================
+
+    let customer:
+      Customer | undefined;
+
+    if (sale.customer_uuid) {
+
+      customer = db.prepare(`
+
+      SELECT *
+
+      FROM customers
+
+      WHERE customer_uuid = ?
+    `).get(
+        sale.customer_uuid
+      ) as Customer | undefined;
+    }
+
+    // =========================
+    // SALE ITEMS
     // =========================
 
     const items = db.prepare(`
@@ -544,7 +584,7 @@ export class SaleModel {
         si.batch_uuid
 
     WHERE si.sale_uuid = ?
-`).all(
+  `).all(
       saleUuid
     ) as Array<{
 
@@ -582,131 +622,272 @@ export class SaleModel {
     }>;
 
     // =========================
-    // FETCH PAYMENTS
+    // PAYMENTS
     // =========================
 
     const payments = db.prepare(`
-    SELECT
-      method,
-      amount
+
+    SELECT *
 
     FROM payments
 
     WHERE sale_uuid = ?
-  `).all(saleUuid) as any[];
+  `).all(
+      saleUuid
+    ) as Payment[];
 
     // =========================
-    // FETCH SETTINGS
+    // FORMAT ITEMS
     // =========================
 
-    const settings = db.prepare(`
-    SELECT *
-    FROM settings
-    LIMIT 1
-  `).get() as any;
+    const formattedItems: InvoiceItem[] =
+      items.map((item) => {
+
+        const taxableAmount =
+          item.total -
+          item.gst_amount;
+
+        const cgst =
+          item.gst_amount / 2;
+
+        const sgst =
+          item.gst_amount / 2;
+
+        return {
+
+          product_name:
+            item.product_name,
+
+          manufacturer:
+            item.manufacturer,
+
+          hsn_code:
+            item.hsn_code,
+
+          batch_number:
+            item.batch_number,
+
+          expiry_date:
+            item.expiry_date,
+
+          unit:
+            item.unit,
+
+          quantity:
+            item.quantity,
+
+          price:
+            Number(
+              item.price.toFixed(2)
+            ),
+
+          taxable_amount:
+            Number(
+              taxableAmount.toFixed(2)
+            ),
+
+          gst_percent:
+            item.gst_percent,
+
+          gst_amount:
+            Number(
+              item.gst_amount.toFixed(2)
+            ),
+
+          cgst:
+            Number(
+              cgst.toFixed(2)
+            ),
+
+          sgst:
+            Number(
+              sgst.toFixed(2)
+            ),
+
+          total:
+            Number(
+              item.total.toFixed(2)
+            ),
+
+          schedule_type:
+            item.schedule_type
+        };
+      });
 
     // =========================
-    // BUILD INVOICE ITEMS
+    // SUMMARY
     // =========================
 
-    let total = 0;
-    let taxTotal = 0;
+    const taxableTotal =
+      formattedItems.reduce(
+        (sum, item) =>
+          sum + item.taxable_amount,
+        0
+      );
 
-    const invoiceItems = items.map((item: any) => {
+    const gstTotal =
+      formattedItems.reduce(
+        (sum, item) =>
+          sum + item.gst_amount,
+        0
+      );
 
-      const qty = Number(item.qty || 0);
-
-      const price = Number(item.price || 0);
-
-      const itemTotal = Number(item.total || 0);
-
-      const taxPercent = Number(item.tax_percent || 0);
-
-      const taxAmount = Number(item.tax_amount || 0);
-
-      const cgst = Number(item.cgst || 0);
-
-      const sgst = Number(item.sgst || 0);
-
-      total += itemTotal;
-      taxTotal += taxAmount;
-
-      return {
-        name: item.product_name,
-        hsn_code: item.hsn_code || null,
-
-        qty,
-
-        price,
-
-        total: Math.round(itemTotal * 100) / 100,
-
-        tax_percent: taxPercent,
-
-        tax_amount: Math.round(taxAmount * 100) / 100,
-
-        cgst: Math.round(cgst * 100) / 100,
-
-        sgst: Math.round(sgst * 100) / 100
-      };
-    });
+    const grandTotal =
+      formattedItems.reduce(
+        (sum, item) =>
+          sum + item.total,
+        0
+      );
 
     // =========================
-    // GST SPLIT
+    // COMPLIANCE FLAGS
     // =========================
 
-    const cgst = taxTotal / 2;
+    const containsScheduleH =
+      formattedItems.some(
+        (item) =>
+          item.schedule_type === 'H'
+      );
 
-    const sgst = taxTotal / 2;
+    const containsScheduleH1 =
+      formattedItems.some(
+        (item) =>
+          item.schedule_type === 'H1'
+      );
+
+    const containsScheduleX =
+      formattedItems.some(
+        (item) =>
+          item.schedule_type === 'X'
+      );
+
+    const warnings: string[] = [];
+
+    if (containsScheduleH) {
+
+      warnings.push(
+        'Schedule H drug: Warning - To be sold by retail on the prescription of a Registered Medical Practitioner only.'
+      );
+    }
+
+    if (containsScheduleH1) {
+
+      warnings.push(
+        'Schedule H1 drug sold under prescription record compliance.'
+      );
+    }
+
+    if (containsScheduleX) {
+
+      warnings.push(
+        'Schedule X drug dispensed under strict prescription control.'
+      );
+    }
 
     // =========================
-    // FINAL RESPONSE
+    // RETURN
     // =========================
 
     return {
 
-      shop: settings
-        ? {
-          name: settings.shop_name,
-          mobile: settings.mobile,
-          address: settings.address,
-          gstin: settings.gstin
-        }
-        : null,
+      invoice_number:
+        sale.invoice_number,
 
-      invoice_number: sale.invoice_number,
+      invoice_date:
+        sale.created_at,
 
-      date: sale.created_at,
+      customer:
+        customer
+          ? {
+            name:
+              customer.name,
 
-      customer: sale.customer_name
-        ? {
-          name: sale.customer_name,
-          mobile: sale.customer_mobile
-        }
-        : {
-          name: 'Walk In Customer',
-          mobile: null
-        },
+            mobile:
+              customer.mobile,
 
-      items: invoiceItems,
+            address:
+              customer.address,
 
-      summary: {
-        total: Math.round(total * 100) / 100,
+            gstin:
+              customer.gstin
+          }
+          : undefined,
 
-        tax: Math.round(taxTotal * 100) / 100,
+      pharmacy: {
 
-        cgst: Math.round(cgst * 100) / 100,
+        shop_name:
+          settings.shop_name,
 
-        sgst: Math.round(sgst * 100) / 100,
+        address:
+          settings.address,
 
-        grand_total:
-          Math.round(Number(sale.grand_total || 0) * 100) / 100
+        mobile:
+          settings.mobile,
+
+        gstin:
+          settings.gstin,
+
+        drug_license_number:
+          settings.drug_license_number,
+
+        pharmacist_name:
+          settings.pharmacist_name,
+
+        pharmacist_registration_number:
+          settings.pharmacist_registration_number
       },
 
-      payments: payments.map((payment: any) => ({
-        method: payment.method,
-        amount: Number(payment.amount || 0)
-      }))
+      items:
+        formattedItems,
+
+      summary: {
+
+        subtotal:
+          Number(
+            taxableTotal.toFixed(2)
+          ),
+
+        taxable_total:
+          Number(
+            taxableTotal.toFixed(2)
+          ),
+
+        gst_total:
+          Number(
+            gstTotal.toFixed(2)
+          ),
+
+        cgst_total:
+          Number(
+            (gstTotal / 2).toFixed(2)
+          ),
+
+        sgst_total:
+          Number(
+            (gstTotal / 2).toFixed(2)
+          ),
+
+        grand_total:
+          Number(
+            grandTotal.toFixed(2)
+          )
+      },
+
+      payments,
+
+      compliance: {
+
+        contains_schedule_h:
+          containsScheduleH,
+
+        contains_schedule_h1:
+          containsScheduleH1,
+
+        contains_schedule_x:
+          containsScheduleX,
+
+        warnings
+      }
     };
   }
 

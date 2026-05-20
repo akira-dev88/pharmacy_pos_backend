@@ -602,3 +602,103 @@ export interface CreateMedicineReturnInput {
 
   performed_by?: string;
 }
+
+export interface InvoiceItem {
+
+  product_name: string;
+
+  manufacturer?: string | null;
+
+  hsn_code?: string | null;
+
+  batch_number?: string | null;
+
+  expiry_date?: string | null;
+
+  unit: string;
+
+  quantity: number;
+
+  price: number;
+
+  taxable_amount: number;
+
+  gst_percent: number;
+
+  gst_amount: number;
+
+  cgst: number;
+
+  sgst: number;
+
+  total: number;
+
+  schedule_type?: string | null;
+}
+
+export interface InvoiceSummary {
+
+  subtotal: number;
+
+  taxable_total: number;
+
+  gst_total: number;
+
+  cgst_total: number;
+
+  sgst_total: number;
+
+  grand_total: number;
+}
+
+export interface PharmacyInvoice {
+
+  invoice_number: string;
+
+  invoice_date: string;
+
+  customer?: {
+
+    name?: string;
+
+    mobile?: string;
+
+    address?: string;
+
+    gstin?: string;
+  };
+
+  pharmacy: {
+
+    shop_name: string;
+
+    address?: string;
+
+    mobile?: string;
+
+    gstin?: string;
+
+    drug_license_number?: string;
+
+    pharmacist_name?: string;
+
+    pharmacist_registration_number?: string;
+  };
+
+  items: InvoiceItem[];
+
+  summary: InvoiceSummary;
+
+  payments: Payment[];
+
+  compliance: {
+
+    contains_schedule_h: boolean;
+
+    contains_schedule_h1: boolean;
+
+    contains_schedule_x: boolean;
+
+    warnings: string[];
+  };
+}
