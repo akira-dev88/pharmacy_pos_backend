@@ -1,59 +1,3 @@
-<!-- PHASE 4 — Purchase System
-
-(VERY IMPORTANT)
-
-Hardware inventory is purchase-heavy.
-
-You need:
-
-supplier
-purchase invoice
-purchase items
-cost price history
-
-You already partially have this.
-
-Now connect it properly. -->
-
-<!-- PHASE 2 — Better Search
-
-(VERY IMPORTANT)
-
-Hardware shops survive on search speed.
-
-You need:
-
-Tokenized search
-
-Example:
-
-3/4 cpvc pipe
-
-Should find:
-
-Ashirvad CPVC Pipe 3/4 inch
-Improve Search Like This
-
-Create:
-
-search_text
-
-column.
-
-Example:
-
-ashirvad cpvc pipe 3/4 inch 10 feet
-
-Then:
-
-LIKE '%cpvc%'
-LIKE '%3/4%'
-
-becomes fast and easy.
-
-This matters MASSIVELY. -->
-
-markdown
 # POS Billing System - API Documentation
 
 A comprehensive Point of Sale (POS) billing system backend built with Node.js, Express, TypeScript, and SQLite.
@@ -212,16 +156,15 @@ Product management endpoints.
 | GET | `/products/sku/:sku` | Find product by SKU | Yes |
 | GET | `/products/low-stock?threshold=10` | Get low stock products | Yes |
 | POST | `/products` | Create product | Yes |
-| POST | `/products/bulk` | Bulk create products | Yes |
 | GET | `/products/:uuid` | Get single product | Yes |
 | PUT | `/products/:uuid` | Update product | Yes |
 | DELETE | `/products/:uuid` | Delete product | Yes |
 
 #### SEARCH:
 
-`GET /products/search?q=paracetamol`
+`GET api/products/search?q=paracetamol`
 
-`GET /products/search?q=Micro`
+`GET api/products/search?q=Micro`
 
 #### Create Product
 
@@ -336,21 +279,6 @@ Get Low Stock Products
 
 `GET /api/products/low-stock?threshold=10`
 
-Bulk Create Products
-
-`POST /api/products/bulk`
-
-Request Body
-```
-{
-  "products": [
-    {"name": "Product A", "price": 10.99},
-    {"name": "Product B", "price": 20.99},
-    {"name": "Product C", "price": 15.99}
-  ]
-}
-```
-
 ### Batch 
 
 `GET /api/product-batches/product/YOUR_PRODUCT_UUID`
@@ -387,7 +315,7 @@ Request Body
 
 STOCK UPDATE
 
-`PUT /api/product-batches`
+`POST /api/product-batches`
 ```
 {
   "product_uuid": "b3b8a257-ce93-4e52-83b2-421e52e84d75",
@@ -397,13 +325,17 @@ STOCK UPDATE
   "quantity": 50
 }
 ```
+AVAILABLE BATCH
+
+`GET /api/product-batches/available/YOUR_PRODUCT_UUID`
+
 
 //automatic FEFO allocation
 
 B1 -> 5
 B2 -> 3
 
-`POST /api/product-batche`s
+`POST /api/product-batche`
 ```
 {
   "product_uuid": "b3b8a257-ce93-4e52-83b2-421e52e84d75",
@@ -1014,17 +946,29 @@ Create Purchase
 Request Body
 ```
 {
-  "supplier_uuid": "supplier-uuid-here",
   "items": [
     {
-      "product_uuid": "product-uuid-1",
-      "quantity": 10,
-      "cost_price": 50.00
-    },
-    {
-      "product_uuid": "product-uuid-2",
-      "quantity": 5,
-      "cost_price": 75.00
+      "product_uuid": "4c266d95-4571-4237-a2c4-e54e53af5e1b",
+
+      "batch_number": "DOLO-PUR-001",
+
+      "expiry_date": "2028-12-31",
+
+      "quantity": 100,
+
+      "free_quantity": 10,
+
+      "mrp": 32,
+
+      "ptr": 24,
+
+      "rate": 22,
+
+      "cost_price": 22,
+
+      "selling_price": 32,
+
+      "gst_percent": 12
     }
   ]
 }
@@ -1072,20 +1016,6 @@ List Purchases
 `GET /api/purchases`
 
 Response 200 OK
-```
-[
-  {
-    "purchase_uuid": "uuid-here",
-    "total": 875.00,
-    "supplier_uuid": "supplier-uuid-here",
-    "items": [ /* array of purchase items with product details */ ],
-    "supplier": {
-      "supplier_uuid": "supplier-uuid-here",
-      "name": "ABC Supplies"
-    }
-  }
-]
-```
 
 # Settings
 Shop settings management (Owner only for create/update).
