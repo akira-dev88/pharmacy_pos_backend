@@ -78,7 +78,7 @@ export class CartModel {
 
       p.purchase_price as p_purchase_price,
 
-      p.selling_price as p_selling_price,
+      p.price as p_selling_price,
 
       p.stock as p_stock,
 

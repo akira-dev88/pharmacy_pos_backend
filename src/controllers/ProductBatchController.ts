@@ -318,4 +318,19 @@ export class ProductBatchController {
       });
     }
   };
+
+  static deleteBatch = (req: Request, res: Response): void => {
+  try {
+    const batch_uuid = String(req.params.batch_uuid);
+    const deleted = ProductBatchModel.deleteBatch(batch_uuid);
+    if (!deleted) {
+      res.status(404).json({ success: false, error: 'Batch not found' });
+      return;
+    }
+    res.json({ success: true, message: 'Batch deleted' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+};
 }

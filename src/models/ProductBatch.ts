@@ -1,123 +1,60 @@
 import db from '../database/connection';
-
 import { v4 as uuidv4 } from 'uuid';
-
-import type {
-  ProductBatch,
-  ProductBatchCreateInput
-} from '../types';
+import type { ProductBatch, ProductBatchCreateInput } from '../types';
 import { AuditLogModel } from './AuditLog';
 
 export class ProductBatchModel {
 
-  // =========================
-  // CONFIG
-  // =========================
-
   static readonly MIN_EXPIRY_DAYS = 30;
-
   static readonly NEAR_EXPIRY_DAYS = 90;
 
   // =========================
   // CREATE
   // =========================
 
-  static create(
-    input: ProductBatchCreateInput
-  ): ProductBatch {
-
+  static create(input: ProductBatchCreateInput): ProductBatch {
     const batchUuid = uuidv4();
 
-    const today = new Date()
-      .toISOString()
-      .split('T')[0];
-
+    const today = new Date().toISOString().split('T')[0];
     if (input.expiry_date <= today) {
-      throw new Error(
-        'Expired batch cannot be added'
-      );
+      throw new Error('Expired batch cannot be added');
     }
 
     const stmt = db.prepare(`
-
       INSERT INTO product_batches (
-
-        batch_uuid,
-        product_uuid,
-        batch_number,
-        expiry_date,
-        manufacture_date,
-
-        mrp,
-        ptr,
-        rate,
-
-        purchase_price,
-        selling_price,
-
-        gst_percent,
-
-        quantity,
-        sold_quantity,
-        free_quantity,
-
-        is_quarantined,
-
-        supplier_uuid,
-        purchase_uuid
-
+        batch_uuid, product_uuid, batch_number, expiry_date, manufacture_date,
+        mrp, ptr, rate, purchase_price, selling_price, gst_percent,
+        quantity, sold_quantity, free_quantity, is_quarantined,
+        supplier_uuid, purchase_uuid
       ) VALUES (
-
         ?, ?, ?, ?, ?,
-        ?, ?, ?,
-        ?, ?,
+        ?, ?, ?, ?, ?, ?,
         ?, ?, ?, ?,
-        ?,
         ?, ?
       )
     `);
 
     stmt.run(
-
       batchUuid,
-
       input.product_uuid,
-
       input.batch_number,
-
       input.expiry_date,
-
       input.manufacture_date || null,
-
       input.mrp,
-
       input.ptr || 0,
-
       input.rate || 0,
-
       input.purchase_price || 0,
-
       input.selling_price || 0,
-
       input.gst_percent || 0,
-
       input.quantity,
-
       0,
-
       input.free_quantity || 0,
-
       0,
-
       input.supplier_uuid || null,
-
       input.purchase_uuid || null
     );
 
-    this.recalculateProductStock(
-      input.product_uuid
-    );
-
+    this.recalculateProductStock(input.product_uuid);
     return this.findById(batchUuid)!;
   }
 
@@ -125,127 +62,56 @@ export class ProductBatchModel {
   // FIND BY ID
   // =========================
 
-  static findById(
-    uuid: string
-  ): ProductBatch | undefined {
-
-    const stmt = db.prepare(`
-      SELECT *
-      FROM product_batches
-      WHERE batch_uuid = ?
-    `);
-
+  static findById(uuid: string): ProductBatch | undefined {
+    const stmt = db.prepare(`SELECT * FROM product_batches WHERE batch_uuid = ?`);
     return stmt.get(uuid) as ProductBatch | undefined;
   }
 
   // =========================
-  // PRODUCT BATCHES
+  // GET BY PRODUCT
   // =========================
 
-  static getByProduct(
-    product_uuid: string
-  ): ProductBatch[] {
-
+  static getByProduct(product_uuid: string): ProductBatch[] {
     const stmt = db.prepare(`
-
-      SELECT *
-      FROM product_batches
-
+      SELECT * FROM product_batches
       WHERE product_uuid = ?
-
       ORDER BY expiry_date ASC
     `);
-
-    return stmt.all(
-      product_uuid
-    ) as ProductBatch[];
+    return stmt.all(product_uuid) as ProductBatch[];
   }
 
   // =========================
   // AVAILABLE FEFO BATCHES
   // =========================
 
-  static getAvailableBatches(
-    product_uuid: string
-  ): ProductBatch[] {
-
+  static getAvailableBatches(product_uuid: string): ProductBatch[] {
     const stmt = db.prepare(`
-
-      SELECT *
-      FROM product_batches
-
+      SELECT * FROM product_batches
       WHERE
-
         product_uuid = ?
-
         AND quantity > 0
-
         AND is_quarantined = 0
-
-        AND expiry_date >
-          DATE(
-            'now',
-            '+' || ? || ' day'
-          )
-
+        AND expiry_date > DATE('now', '+' || ? || ' day')
       ORDER BY expiry_date ASC
     `);
-
-    return stmt.all(
-      product_uuid,
-      this.MIN_EXPIRY_DAYS
-    ) as ProductBatch[];
+    return stmt.all(product_uuid, this.MIN_EXPIRY_DAYS) as ProductBatch[];
   }
 
   // =========================
   // RECALCULATE STOCK
   // =========================
 
-  static recalculateProductStock(
-    product_uuid: string
-  ): void {
-
-    const stmt = db.prepare(`
-
-      SELECT
-
-        COALESCE(
-          SUM(quantity),
-          0
-        ) as total
-
+  static recalculateProductStock(product_uuid: string): void {
+    const result = db.prepare(`
+      SELECT COALESCE(SUM(quantity), 0) as total
       FROM product_batches
-
-      WHERE
-
-        product_uuid = ?
-
-        AND quantity > 0
-
-        AND is_quarantined = 0
-
-        AND expiry_date > DATE('now')
-    `);
-
-    const result = stmt.get(
-      product_uuid
-    ) as {
-      total: number;
-    };
+      WHERE product_uuid = ? AND quantity > 0 AND is_quarantined = 0 AND expiry_date > DATE('now')
+    `).get(product_uuid) as { total: number };
 
     db.prepare(`
-
-      UPDATE products
-
-      SET
-        stock = ?,
-        updated_at = CURRENT_TIMESTAMP
-
+      UPDATE products SET stock = ?, updated_at = CURRENT_TIMESTAMP
       WHERE product_uuid = ?
-    `).run(
-      result.total || 0,
-      product_uuid
-    );
+    `).run(result.total || 0, product_uuid);
   }
 
   // =========================
@@ -257,56 +123,26 @@ export class ProductBatchModel {
     quantity: number,
     operation: 'add' | 'subtract'
   ): ProductBatch | undefined {
+    const batch = this.findById(batch_uuid);
+    if (!batch) return undefined;
 
-    const batch =
-      this.findById(batch_uuid);
+    const newQuantity = operation === 'add'
+      ? batch.quantity + quantity
+      : batch.quantity - quantity;
 
-    if (!batch) {
-      return undefined;
-    }
+    if (newQuantity < 0) throw new Error('Insufficient batch stock');
 
-    const newQuantity =
-      operation === 'add'
-        ? batch.quantity + quantity
-        : batch.quantity - quantity;
-
-    if (newQuantity < 0) {
-      throw new Error(
-        'Insufficient batch stock'
-      );
-    }
-
-    const soldQuantity =
-      operation === 'subtract'
-        ? batch.sold_quantity + quantity
-        : Math.max(
-          batch.sold_quantity - quantity,
-          0
-        );
+    const soldQuantity = operation === 'subtract'
+      ? batch.sold_quantity + quantity
+      : Math.max(batch.sold_quantity - quantity, 0);
 
     db.prepare(`
-
       UPDATE product_batches
-
-      SET
-
-        quantity = ?,
-
-        sold_quantity = ?,
-
-        updated_at = CURRENT_TIMESTAMP
-
+      SET quantity = ?, sold_quantity = ?, updated_at = CURRENT_TIMESTAMP
       WHERE batch_uuid = ?
-    `).run(
-      newQuantity,
-      soldQuantity,
-      batch_uuid
-    );
+    `).run(newQuantity, soldQuantity, batch_uuid);
 
-    this.recalculateProductStock(
-      batch.product_uuid
-    );
-
+    this.recalculateProductStock(batch.product_uuid);
     return this.findById(batch_uuid);
   }
 
@@ -314,68 +150,42 @@ export class ProductBatchModel {
   // FEFO CONSUMPTION
   // =========================
 
-  static consumeStockFEFO(
-    product_uuid: string,
-    quantity: number
-  ): {
-    batch_uuid: string;
-    quantity: number;
-  }[] {
-
-    const batches =
-      this.getAvailableBatches(
-        product_uuid
-      );
-
-    if (!batches.length) {
-      throw new Error(
-        'No saleable batches available'
-      );
-    }
+  static consumeStockFEFO(product_uuid: string, quantity: number): { batch_uuid: string; quantity: number }[] {
+    const batches = this.getAvailableBatches(product_uuid);
+    if (!batches.length) throw new Error('No saleable batches available');
 
     let remaining = quantity;
-
-    const consumed: {
-      batch_uuid: string;
-      quantity: number;
-    }[] = [];
+    const consumed: { batch_uuid: string; quantity: number }[] = [];
 
     for (const batch of batches) {
-
-      if (remaining <= 0) {
-        break;
-      }
-
-      const deductQty =
-        Math.min(
-          batch.quantity,
-          remaining
-        );
-
-      this.updateQuantity(
-        batch.batch_uuid,
-        deductQty,
-        'subtract'
-      );
-
-      consumed.push({
-
-        batch_uuid: batch.batch_uuid,
-
-        quantity: deductQty
-      });
-
+      if (remaining <= 0) break;
+      const deductQty = Math.min(batch.quantity, remaining);
+      this.updateQuantity(batch.batch_uuid, deductQty, 'subtract');
+      consumed.push({ batch_uuid: batch.batch_uuid, quantity: deductQty });
       remaining -= deductQty;
     }
 
-    if (remaining > 0) {
-
-      throw new Error(
-        'Insufficient valid FEFO stock'
-      );
-    }
-
+    if (remaining > 0) throw new Error('Insufficient valid FEFO stock');
     return consumed;
+  }
+
+  // =========================
+  // DELETE BATCH
+  // =========================
+
+  static deleteBatch(batch_uuid: string): boolean {
+    const batch = this.findById(batch_uuid);
+    if (!batch) return false;
+
+    const result = db.prepare(`
+      DELETE FROM product_batches WHERE batch_uuid = ?
+    `).run(batch_uuid);
+
+    if (result.changes > 0) {
+      this.recalculateProductStock(batch.product_uuid);
+      return true;
+    }
+    return false;
   }
 
   // =========================
@@ -383,70 +193,23 @@ export class ProductBatchModel {
   // =========================
 
   static getNearExpiry(): Array<{
-    product_uuid: string;
-    product_name: string;
-    batch_uuid: string;
-    batch_number: string;
-    expiry_date: string;
-    remaining_qty: number;
-    days_left: number;
+    product_uuid: string; product_name: string; batch_uuid: string;
+    batch_number: string; expiry_date: string; remaining_qty: number; days_left: number;
   }> {
-
     const stmt = db.prepare(`
-
       SELECT
-
-        pb.batch_uuid,
-
-        pb.product_uuid,
-
-        p.name as product_name,
-
-        pb.batch_number,
-
-        pb.expiry_date,
-
-        pb.quantity as remaining_qty,
-
-        CAST(
-          julianday(pb.expiry_date)
-          - julianday('now')
-          AS INTEGER
-        ) as days_left
-
+        pb.batch_uuid, pb.product_uuid, p.name as product_name,
+        pb.batch_number, pb.expiry_date, pb.quantity as remaining_qty,
+        CAST(julianday(pb.expiry_date) - julianday('now') AS INTEGER) as days_left
       FROM product_batches pb
-
-      INNER JOIN products p
-        ON p.product_uuid = pb.product_uuid
-
+      INNER JOIN products p ON p.product_uuid = pb.product_uuid
       WHERE
-
-        pb.expiry_date BETWEEN
-          DATE('now')
-          AND
-          DATE(
-            'now',
-            '+' || ? || ' day'
-          )
-
+        pb.expiry_date BETWEEN DATE('now') AND DATE('now', '+' || ? || ' day')
         AND pb.quantity > 0
-
         AND pb.is_quarantined = 0
-
       ORDER BY pb.expiry_date ASC
     `);
-
-    return stmt.all(
-      this.NEAR_EXPIRY_DAYS
-    ) as Array<{
-      product_uuid: string;
-      product_name: string;
-      batch_uuid: string;
-      batch_number: string;
-      expiry_date: string;
-      remaining_qty: number;
-      days_left: number;
-    }>;
+    return stmt.all(this.NEAR_EXPIRY_DAYS) as any[];
   }
 
   // =========================
@@ -454,97 +217,28 @@ export class ProductBatchModel {
   // =========================
 
   static quarantineExpired(): number {
-
     const expiredBatches = db.prepare(`
-
-    SELECT
-
-      batch_uuid,
-
-      product_uuid,
-
-      expiry_date
-
-    FROM product_batches
-
-    WHERE
-
-      expiry_date <= DATE('now')
-
-      AND is_quarantined = 0
-  `).all() as Array<{
-
-      batch_uuid: string;
-
-      product_uuid: string;
-
-      expiry_date: string;
-    }>;
-
-    // =========================
-    // UPDATE QUARANTINE
-    // =========================
+      SELECT batch_uuid, product_uuid, expiry_date
+      FROM product_batches
+      WHERE expiry_date <= DATE('now') AND is_quarantined = 0
+    `).all() as Array<{ batch_uuid: string; product_uuid: string; expiry_date: string }>;
 
     const result = db.prepare(`
+      UPDATE product_batches
+      SET is_quarantined = 1, updated_at = CURRENT_TIMESTAMP
+      WHERE expiry_date <= DATE('now') AND is_quarantined = 0
+    `).run();
 
-    UPDATE product_batches
-
-    SET
-
-      is_quarantined = 1,
-
-      updated_at = CURRENT_TIMESTAMP
-
-    WHERE
-
-      expiry_date <= DATE('now')
-
-      AND is_quarantined = 0
-  `).run();
-
-    // =========================
-    // RECALCULATE STOCK
-    // =========================
-
-    const affectedProducts =
-      new Set<string>();
+    const affectedProducts = new Set<string>();
+    for (const batch of expiredBatches) affectedProducts.add(batch.product_uuid);
+    for (const productUuid of affectedProducts) this.recalculateProductStock(productUuid);
 
     for (const batch of expiredBatches) {
-
-      affectedProducts.add(
-        batch.product_uuid
-      );
-    }
-
-    for (const productUuid of affectedProducts) {
-
-      this.recalculateProductStock(
-        productUuid
-      );
-    }
-
-    // =========================
-    // AUDIT LOGS
-    // =========================
-
-    for (const batch of expiredBatches) {
-
       AuditLogModel.create({
-
-        action_type:
-          'batch_quarantined',
-
-        entity_type:
-          'product_batch',
-
-        entity_uuid:
-          batch.batch_uuid,
-
-        details: JSON.stringify({
-
-          expiry_date:
-            batch.expiry_date
-        })
+        action_type: 'batch_quarantined',
+        entity_type: 'product_batch',
+        entity_uuid: batch.batch_uuid,
+        details: JSON.stringify({ expiry_date: batch.expiry_date })
       });
     }
 

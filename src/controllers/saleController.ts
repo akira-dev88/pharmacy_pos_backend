@@ -83,7 +83,9 @@ export class SaleController {
         invoice: invoice
       });
     } catch (error: any) {
-      console.error('Checkout error:', error);
+      console.error('❌ Checkout error DETAILS:', error);
+      console.error('Stack:', error.stack);
+      // Send the actual error message to the frontend
       res.status(500).json({
         success: false,
         error: error.message || 'Internal server error'

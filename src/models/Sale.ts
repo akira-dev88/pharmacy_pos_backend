@@ -188,21 +188,6 @@ export class SaleModel {
         Math.round(grandTotal * 100) / 100
       );
 
-      db.prepare(`
-
-      UPDATE sales
-
-      SET
-
-        is_locked = 1,
-
-        updated_at = CURRENT_TIMESTAMP
-
-      WHERE sale_uuid = ?
-    `).run(
-      saleUuid
-    );
-
       // Create sale items
       const insertItem = db.prepare(`
         INSERT INTO sale_items (
@@ -547,30 +532,6 @@ export class SaleModel {
       return { sale, paid: paidAmount, balance };
     });
 
-    const lockedSale = db.prepare(`
-
-      SELECT is_locked
-
-      FROM sales
-
-      WHERE sale_uuid = ?
-    `).get(
-      saleUuid
-    ) as {
-      is_locked: number;
-    };
-
-    if (
-      Number(
-        lockedSale.is_locked
-      ) === 1
-    ) {
-
-      throw new Error(
-        'Locked invoice cannot be modified'
-      );
-    }
-
     return transaction();
   }
 
@@ -784,6 +745,8 @@ export class SaleModel {
 
       pb.batch_number,
 
+      pb.batch_uuid as batch_uuid,
+
       pb.expiry_date
 
     FROM sale_items si
@@ -879,6 +842,10 @@ export class SaleModel {
 
           batch_number:
             item.batch_number,
+
+          batch_uuid: item.batch_uuid,
+
+          product_uuid: item.product_uuid,
 
           expiry_date:
             item.expiry_date,

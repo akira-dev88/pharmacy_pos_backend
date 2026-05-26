@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { ReportModel } from '../models/Report';
 import type { AuthRequest } from '../middleware/auth';
+import db from '../database/connection';
 
 export class ReportController {
   // Dashboard summary
@@ -119,4 +120,85 @@ export class ReportController {
       res.status(500).json({ error: 'Internal server error' });
     }
   };
+
+  static getGSTReport = (req: Request, res: Response): void => {
+  try {
+    const { month } = req.query; // format: YYYY-MM
+    if (!month) {
+      res.status(400).json({ success: false, error: 'Month parameter required (YYYY-MM)' });
+      return;
+    }
+
+    const startDate = `${month}-01`;
+    const endDate = new Date(new Date(startDate).getFullYear(), new Date(startDate).getMonth() + 1, 0).toISOString().slice(0, 10);
+
+    // Get shop settings
+    const shop = db.prepare('SELECT shop_name, gstin FROM settings LIMIT 1').get() as any;
+
+    // Get GST slabs
+    const slabs = db.prepare(`
+      SELECT 
+        gst_percent as tax_percent,
+        COUNT(DISTINCT s.sale_uuid) as invoice_count,
+        COALESCE(SUM(si.total), 0) as taxable_value,
+        COALESCE(SUM(si.gst_amount), 0) as total_tax
+      FROM sale_items si
+      JOIN sales s ON s.sale_uuid = si.sale_uuid
+      WHERE s.created_at BETWEEN ? AND ?
+        AND si.gst_percent > 0
+      GROUP BY si.gst_percent
+      ORDER BY si.gst_percent
+    `).all(startDate, endDate);
+
+    // Exempt (0% GST) – items with gst_percent = 0
+    const exempt = db.prepare(`
+      SELECT COALESCE(SUM(si.total), 0) as exempt_value
+      FROM sale_items si
+      JOIN sales s ON s.sale_uuid = si.sale_uuid
+      WHERE s.created_at BETWEEN ? AND ?
+        AND (si.gst_percent = 0 OR si.gst_percent IS NULL)
+    `).get(startDate, endDate) as { exempt_value: number };
+
+    // Invoices list for the month
+    const invoices = db.prepare(`
+      SELECT 
+        s.sale_uuid,
+        s.invoice_number,
+        s.created_at,
+        c.name as customer_name,
+        s.total,
+        s.tax,
+        s.grand_total
+      FROM sales s
+      LEFT JOIN customers c ON c.customer_uuid = s.customer_uuid
+      WHERE s.created_at BETWEEN ? AND ?
+      ORDER BY s.created_at ASC
+    `).all(startDate, endDate);
+
+    // Summary
+    const summary = db.prepare(`
+      SELECT 
+        COUNT(*) as total_invoices,
+        COALESCE(SUM(total), 0) as total_taxable,
+        COALESCE(SUM(tax), 0) as total_tax,
+        COALESCE(SUM(grand_total), 0) as grand_total
+      FROM sales
+      WHERE created_at BETWEEN ? AND ?
+    `).get(startDate, endDate) as any;
+
+    res.json({
+      success: true,
+      data: {
+        shop,
+        slabs,
+        exempt_value: exempt.exempt_value,
+        invoices,
+        summary
+      }
+    });
+  } catch (error) {
+    console.error('GST report error:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+};
 }

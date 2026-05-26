@@ -345,43 +345,58 @@ export class ProductController {
   // DELETE
   // =========================
 
-  static destroy = (
-    req: AuthRequest,
-    res: Response
-  ): void => {
+  // static destroy = (
+  //   req: AuthRequest,
+  //   res: Response
+  // ): void => {
 
-    try {
+  //   try {
 
-      const deleted =
-        ProductModel.delete(
-          this.getString(req.params.uuid)
-        );
+  //     const deleted =
+  //       ProductModel.delete(
+  //         this.getString(req.params.uuid)
+  //       );
 
-      if (!deleted) {
+  //     if (!deleted) {
 
-        res.status(404).json({
-          success: false,
-          error: 'Product not found'
-        });
+  //       res.status(404).json({
+  //         success: false,
+  //         error: 'Product not found'
+  //       });
 
-        return;
-      }
+  //       return;
+  //     }
 
-      res.json({
-        success: true,
-        message: 'Deleted successfully'
-      });
+  //     res.json({
+  //       success: true,
+  //       message: 'Deleted successfully'
+  //     });
 
-    } catch (error) {
+  //   } catch (error) {
 
-      console.error(error);
+  //     console.error(error);
 
-      res.status(500).json({
-        success: false,
-        error: 'Internal server error'
-      });
+  //     res.status(500).json({
+  //       success: false,
+  //       error: 'Internal server error'
+  //     });
+  //   }
+  // };
+
+  static destroy = (req: AuthRequest, res: Response): void => {
+  try {
+    const deleted = ProductModel.delete(this.getString(req.params.uuid));
+    if (!deleted) {
+      res.status(404).json({ success: false, error: 'Product not found' });
+      return;
     }
-  };
+    res.json({ success: true, message: 'Deleted successfully' });
+  } catch (error: any) {
+    console.error(error);
+    // Send the actual error message to frontend
+    res.status(500).json({ success: false, error: error.message || 'Internal server error' });
+  }
+};
 
   // =========================
   // LOW STOCK
