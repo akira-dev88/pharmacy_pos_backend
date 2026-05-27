@@ -23,7 +23,6 @@ export class CartModel {
   }
 
   // Get cart with items and product details
-  // Get cart with items and product details
   static findWithItems(
     uuid: string
   ): CartWithItems | undefined {
@@ -47,6 +46,8 @@ export class CartModel {
       ci.cart_uuid,
 
       ci.product_uuid,
+
+      ci.unit_uuid,
 
       ci.quantity,
 
@@ -106,6 +107,8 @@ export class CartModel {
       cart_uuid: string;
 
       product_uuid: string;
+
+      unit_uuid: string;
 
       quantity: number;
 
@@ -197,6 +200,9 @@ export class CartModel {
 
         product_uuid:
           item.product_uuid,
+
+        unit_uuid:
+          item.unit_uuid,
 
         quantity:
           item.quantity,
@@ -332,12 +338,28 @@ export class CartModel {
   }
 
   // Add item to cart
-  static addItem(cartUuid: string, productUuid: string, quantity: number, price: number, taxPercent: number): CartItem {
+  static addItem(
+    cartUuid: string,
+    productUuid: string,
+    unitUuid: string,
+    quantity: number,
+    price: number,
+    taxPercent: number
+  ): CartItem {
+    // Debug: show cart_items table columns
+    console.log('cart_items columns:', db.prepare('PRAGMA table_info(cart_items)').all());
+
     // Check if item already exists in cart
     const existingItem = db.prepare(`
       SELECT * FROM cart_items 
-      WHERE cart_uuid = ? AND product_uuid = ?
-    `).get(cartUuid, productUuid) as CartItem | undefined;
+      WHERE cart_uuid = ?
+      AND product_uuid = ?
+      AND unit_uuid = ?
+    `).get(
+      cartUuid,
+      productUuid,
+      unitUuid
+    ) as CartItem | undefined;
 
     if (existingItem) {
       // Update quantity
@@ -355,27 +377,83 @@ export class CartModel {
     } else {
       // Insert new item
       const stmt = db.prepare(`
-        INSERT INTO cart_items (cart_uuid, product_uuid, quantity, price, tax_percent, discount)
-        VALUES (?, ?, ?, ?, ?, 0.00)
+
+        INSERT INTO cart_items (
+
+          cart_uuid,
+          product_uuid,
+          unit_uuid,
+          quantity,
+          price,
+          discount,
+          tax_percent
+
+        ) VALUES (
+
+          ?, ?, ?, ?, ?, ?, ?
+
+        )
+
       `);
 
-      const result = stmt.run(cartUuid, productUuid, quantity, price, taxPercent);
+      console.log({
+
+        cartUuid,
+
+        productUuid,
+
+        unitUuid,
+
+        quantity,
+
+        price,
+
+        taxPercent
+
+      });
+
+      const result = stmt.run(
+
+        cartUuid,
+
+        productUuid,
+
+        unitUuid || null,
+
+        Number(quantity),
+
+        Number(price),
+
+        0,
+
+        Number(taxPercent || 0)
+      );
 
       return db.prepare('SELECT * FROM cart_items WHERE id = ?').get(result.lastInsertRowid) as CartItem;
     }
   }
 
   // Update cart item
-  static updateItem(cartUuid: string, productUuid: string, updates: {
-    quantity?: number;
-    price?: number;
-    discount?: number;
-    tax_percent?: number;
-  }): CartItem | undefined {
+  static updateItem(
+    cartUuid: string,
+    productUuid: string,
+    unitUuid: string,
+    updates: {
+      quantity?: number;
+      price?: number;
+      discount?: number;
+      tax_percent?: number;
+    }): CartItem | undefined {
     const item = db.prepare(`
-      SELECT * FROM cart_items 
-      WHERE cart_uuid = ? AND product_uuid = ?
-    `).get(cartUuid, productUuid) as CartItem | undefined;
+      SELECT * FROM cart_items
+      WHERE cart_uuid = ?
+      AND product_uuid = ?
+      AND unit_uuid = ?
+    `).get(
+      cartUuid,
+      productUuid,
+      unitUuid
+    ) as CartItem | undefined;
 
     if (!item) return undefined;
 
@@ -401,26 +479,49 @@ export class CartModel {
 
     if (updateFields.length > 0) {
       updateFields.push('updated_at = CURRENT_TIMESTAMP');
-      values.push(cartUuid, productUuid);
+      values.push(
+        cartUuid,
+        productUuid,
+        unitUuid
+      );
 
       db.prepare(`
         UPDATE cart_items 
         SET ${updateFields.join(', ')} 
-        WHERE cart_uuid = ? AND product_uuid = ?
+        WHERE cart_uuid = ?
+        AND product_uuid = ?
+        AND unit_uuid = ?
       `).run(...values);
     }
 
     return db.prepare(`
-      SELECT * FROM cart_items WHERE cart_uuid = ? AND product_uuid = ?
-    `).get(cartUuid, productUuid) as CartItem;
+      SELECT * FROM cart_items 
+      WHERE cart_uuid = ?
+      AND product_uuid = ?
+      AND unit_uuid = ?
+    `).get(
+      cartUuid,
+      productUuid,
+      unitUuid
+    ) as CartItem;
   }
 
   // Remove item from cart
-  static removeItem(cartUuid: string, productUuid: string): boolean {
+  static removeItem(
+    cartUuid: string,
+    productUuid: string,
+    unitUuid: string
+  ): boolean {
     const result = db.prepare(`
       DELETE FROM cart_items 
-      WHERE cart_uuid = ? AND product_uuid = ?
-    `).run(cartUuid, productUuid);
+      WHERE cart_uuid = ?
+      AND product_uuid = ?
+      AND unit_uuid = ?
+    `).run(
+      cartUuid,
+      productUuid,
+      unitUuid
+    );
 
     return result.changes > 0;
   }

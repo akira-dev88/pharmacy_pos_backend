@@ -492,6 +492,7 @@ export interface CartItem {
   id: number;
   cart_uuid: string;
   product_uuid: string;
+  unit_uuid: string;
   quantity: number;
   price: number;
   discount: number;

@@ -9,6 +9,10 @@ import type {
 import { v4 as uuidv4 } from 'uuid';
 
 import {
+  ProductUnitModel
+} from './ProductUnit';
+
+import {
   ProductBatchModel
 } from './ProductBatch';
 
@@ -23,6 +27,7 @@ export class PurchaseModel {
     items: Array<{
       product_uuid: string;
       batch_number: string;
+      unit_uuid: string;
       expiry_date: string;
       manufacture_date?: string;
       quantity: number;
@@ -35,12 +40,16 @@ export class PurchaseModel {
       gst_percent?: number;
     }>;
   }): PurchaseWithRelations {
+
     const purchaseUuid = uuidv4();
+
     let total = 0;
 
     const transaction = db.transaction(() => {
 
+      // =========================
       // CREATE PURCHASE
+      // =========================
 
       db.prepare(`
 
@@ -53,11 +62,15 @@ export class PurchaseModel {
         ) VALUES (?, 0, ?)
 
       `).run(
+
         purchaseUuid,
+
         data.supplier_uuid || null
       );
 
+      // =========================
       // INSERT PURCHASE ITEM
+      // =========================
 
       const insertItem = db.prepare(`
 
@@ -75,6 +88,10 @@ export class PurchaseModel {
 
           quantity,
 
+          unit_uuid,
+
+          normalized_quantity,
+
           free_quantity,
 
           mrp,
@@ -89,11 +106,17 @@ export class PurchaseModel {
 
           gst_percent
 
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (
+
+          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+
+        )
 
       `);
 
+      // =========================
       // STOCK LEDGER
+      // =========================
 
       const insertStockLedger = db.prepare(`
 
@@ -108,40 +131,135 @@ export class PurchaseModel {
         ) VALUES (
 
           ?, ?, 'purchase', ?, 'Stock added via purchase'
+
         )
 
       `);
 
+      // =========================
       // PROCESS ITEMS
+      // =========================
 
       for (const item of data.items) {
 
-        // CHECK PRODUCT
+        // =========================
+        // VALIDATE PRODUCT
+        // =========================
 
         const product = db.prepare(`
 
           SELECT *
+
           FROM products
+
           WHERE product_uuid = ?
 
         `).get(
+
           item.product_uuid
+
         ) as any;
 
         if (!product) {
 
           throw new Error(
+
             `Product not found: ${item.product_uuid}`
+
           );
         }
 
-        const quantity =
-          Number(item.quantity);
+        // =========================
+        // VALIDATE UNIT
+        // =========================
+
+        console.log('ITEM:', item);
+
+        const allUnits = db.prepare(`
+
+          SELECT *
+          FROM product_units
+
+        `).all();
+
+        console.log('ALL UNITS:', allUnits);
+
+        const unit = db.prepare(`
+
+          SELECT
+
+            unit_uuid,
+            product_uuid,
+            unit_name,
+            conversion_factor,
+            is_base_unit
+
+          FROM product_units
+
+          WHERE unit_uuid = ?
+            AND product_uuid = ?
+
+        `).get(
+
+          item.unit_uuid,
+          item.product_uuid
+
+        ) as any;
+
+        console.log('FOUND UNIT:', unit);
+
+        if (!unit) {
+
+          throw new Error(
+
+            `Invalid unit for ${item.product_uuid}`
+
+          );
+        }
+
+        // =========================
+        // CALCULATE QUANTITIES
+        // =========================
+
+        const conversionFactor =
+
+          Number(unit.conversion_factor || 1);
+
+        const normalizedQuantity =
+
+          Number(item.quantity) *
+          conversionFactor;
+
+        const normalizedFreeQuantity =
+
+          Number(item.free_quantity || 0) *
+          conversionFactor;
 
         const costPrice =
+
           Number(item.cost_price);
 
+        const sellingPrice =
+
+          Number(
+            item.selling_price || item.mrp
+          );
+
+        const gstPercent =
+
+          Number(item.gst_percent || 0);
+
+        const ptr =
+
+          Number(item.ptr || 0);
+
+        const rate =
+
+          Number(item.rate || 0);
+
+        // =========================
         // INSERT PURCHASE ITEM
+        // =========================
 
         insertItem.run(
 
@@ -155,24 +273,30 @@ export class PurchaseModel {
 
           item.manufacture_date || null,
 
-          quantity,
+          Number(item.quantity),
 
-          item.free_quantity || 0,
+          item.unit_uuid,
 
-          item.mrp,
+          normalizedQuantity,
 
-          item.ptr || 0,
+          normalizedFreeQuantity,
 
-          item.rate || 0,
+          Number(item.mrp),
+
+          ptr,
+
+          rate,
 
           costPrice,
 
-          item.selling_price || item.mrp,
+          sellingPrice,
 
-          item.gst_percent || 0
+          gstPercent
         );
 
-        // AUTO CREATE BATCH
+        // =========================
+        // CREATE PRODUCT BATCH
+        // =========================
 
         ProductBatchModel.create({
 
@@ -189,28 +313,28 @@ export class PurchaseModel {
             item.manufacture_date,
 
           mrp:
-            item.mrp,
+            Number(item.mrp),
 
           ptr:
-            item.ptr,
+            ptr,
 
           rate:
-            item.rate,
+            rate,
 
           purchase_price:
             costPrice,
 
           selling_price:
-            item.selling_price || item.mrp,
+            sellingPrice,
 
           gst_percent:
-            item.gst_percent || 0,
+            gstPercent,
 
           quantity:
-            quantity,
+            normalizedQuantity,
 
           free_quantity:
-            item.free_quantity || 0,
+            normalizedFreeQuantity,
 
           supplier_uuid:
             data.supplier_uuid,
@@ -219,30 +343,39 @@ export class PurchaseModel {
             purchaseUuid
         });
 
-        // STOCK LEDGER
+        // =========================
+        // INSERT STOCK LEDGER
+        // =========================
 
         insertStockLedger.run(
 
           item.product_uuid,
 
-          quantity,
+          normalizedQuantity,
 
           purchaseUuid
         );
 
+        // =========================
         // CALCULATE TOTAL
+        // =========================
 
         total +=
-          quantity * costPrice;
+
+          normalizedQuantity *
+          costPrice;
       }
 
-      // UPDATE TOTAL
+      // =========================
+      // UPDATE PURCHASE TOTAL
+      // =========================
 
       db.prepare(`
 
         UPDATE purchases
 
         SET
+
           total = ?,
           updated_at = CURRENT_TIMESTAMP
 
@@ -359,11 +492,9 @@ export class PurchaseModel {
         manufacture_date:
           item.manufacture_date,
 
-        quantity:
-          item.quantity,
+        quantity: item.quantity,
 
-        free_quantity:
-          item.free_quantity,
+        free_quantity: item.free_quantity,
 
         mrp:
           item.mrp,

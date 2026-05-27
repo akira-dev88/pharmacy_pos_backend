@@ -54,13 +54,21 @@ export class CartController {
   static addItem = (req: Request, res: Response): void => {
     try {
       const cartUuid = String(req.params.cart_uuid);
-      const { product_uuid, quantity } = req.body;
+      const {
+        product_uuid,
+        unit_uuid,
+        quantity
+      } = req.body;
 
       // Validation
-      if (!product_uuid || !quantity) {
+      if (
+        !product_uuid ||
+        !unit_uuid ||
+        !quantity
+      ) {
         res.status(400).json({ 
           success: false, 
-          error: 'Product UUID and quantity are required' 
+          error: 'product_uuid, unit_uuid and quantity are required'
         });
         return;
       }
@@ -107,9 +115,10 @@ export class CartController {
       const item = CartModel.addItem(
         cartUuid,
         product.product_uuid,
+        String(unit_uuid),
         qty,
         product.price,
-        product.gst_percent
+        product.gst_percent || 0
       );
 
       res.status(201).json({
@@ -130,6 +139,7 @@ export class CartController {
   static updateItem = (req: Request, res: Response): void => {
     try {
       const cartUuid = String(req.params.cart_uuid);
+      const unitUuid = String(req.params.unit_uuid);
       const productUuid = String(req.params.product_uuid);
       const { quantity, price, discount, tax_percent } = req.body;
 
@@ -139,7 +149,12 @@ export class CartController {
       if (discount !== undefined) updates.discount = parseFloat(String(discount));
       if (tax_percent !== undefined) updates.tax_percent = parseFloat(String(tax_percent));
 
-      const item = CartModel.updateItem(cartUuid, productUuid, updates);
+      const item = CartModel.updateItem(
+        cartUuid,
+        productUuid,
+        unitUuid,
+        updates
+      );
 
       if (!item) {
         res.status(404).json({ 
@@ -167,9 +182,17 @@ export class CartController {
   static removeItem = (req: Request, res: Response): void => {
     try {
       const cartUuid = String(req.params.cart_uuid);
-      const productUuid = String(req.params.product_uuid);
+      const productUuid =
+        String(req.params.product_uuid);
 
-      const removed = CartModel.removeItem(cartUuid, productUuid);
+      const unitUuid =
+        String(req.params.unit_uuid);
+
+      const removed = CartModel.removeItem(
+        cartUuid,
+        productUuid,
+        unitUuid
+      );
 
       if (!removed) {
         res.status(404).json({ 

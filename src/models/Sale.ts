@@ -12,6 +12,10 @@ import {
   canDispenseRestrictedMedicine
 } from '../utils/pharmacyAuth';
 
+import {
+  ProductUnitModel
+} from './ProductUnit';
+
 export class SaleModel {
   // Create sale from cart (checkout) - Fix pattern matching PHP
   static createFromCart(
@@ -31,28 +35,68 @@ export class SaleModel {
       let total = 0;
       let taxTotal = 0;
 
-      // Calculate totals from cart items
-      for (const item of cartData.items) {
+      // =========================
+      // PREPARE + VALIDATE
+      // =========================
+
+      const preparedItems = cartData.items.map((item) => {
+
+        const product = db.prepare(`
+        SELECT *
+        FROM products
+        WHERE product_uuid = ?
+      `).get(
+          item.product_uuid
+        ) as any;
+
+        if (!product) {
+
+          throw new Error(
+            `Product not found`
+          );
+        }
+
+        const unit =
+          ProductUnitModel.findById(
+            item.unit_uuid
+          );
+
+        if (!unit) {
+
+          throw new Error(
+            `Invalid unit for ${product.name}`
+          );
+        }
+
+        const normalizedQuantity =
+          Number(item.quantity) *
+          Number(unit.conversion_factor);
+
+        if (
+          normalizedQuantity <= 0
+        ) {
+
+          throw new Error(
+            `Invalid quantity for ${product.name}`
+          );
+        }
+
+        if (
+          Number(product.stock) <
+          normalizedQuantity
+        ) {
+
+          throw new Error(
+            `Insufficient stock for ${product.name}`
+          );
+        }
 
         const prescription =
           prescriptions.find(
-            p => p.product_uuid === item.product_uuid
+            p =>
+              p.product_uuid ===
+              item.product_uuid
           );
-
-        const itemTotal = item.price * item.quantity;
-        const taxAmount = (itemTotal * item.tax_percent) / 100;
-
-        total += itemTotal;
-        taxTotal += taxAmount;
-
-        // Check and update stock
-        const product = db.prepare(
-          'SELECT * FROM products WHERE product_uuid = ?'
-        ).get(item.product_uuid) as any;
-
-        if (!product || product.stock < item.quantity) {
-          throw new Error(`Insufficient stock for ${product?.name || 'product'}`);
-        }
 
         // =========================
         // SCHEDULE H
@@ -89,13 +133,19 @@ export class SaleModel {
             );
           }
 
-          if (!prescription.doctor_name) {
+          if (
+            !prescription.doctor_name
+          ) {
+
             throw new Error(
               `${product.name}: doctor_name required`
             );
           }
 
-          if (!prescription.patient_name) {
+          if (
+            !prescription.patient_name
+          ) {
+
             throw new Error(
               `${product.name}: patient_name required`
             );
@@ -109,36 +159,6 @@ export class SaleModel {
         if (
           product.schedule_type === 'X'
         ) {
-
-          AuditLogModel.create({
-
-            action_type:
-              'schedule_x_sale',
-
-            entity_type:
-              'sale_item',
-
-            entity_uuid:
-              product.product_uuid,
-
-            reference_uuid:
-              saleUuid,
-
-            user_uuid:
-              currentUser?.user_uuid,
-
-            details: JSON.stringify({
-
-              product_name:
-                product.name,
-
-              doctor_license:
-                prescription?.doctor_license,
-
-              prescription_number:
-                prescription?.prescription_number
-            })
-          });
 
           if (
             !canDispenseRestrictedMedicine(
@@ -159,27 +179,76 @@ export class SaleModel {
             );
           }
 
-          if (!prescription.doctor_license) {
+          if (
+            !prescription.doctor_license
+          ) {
+
             throw new Error(
               `${product.name}: doctor license required`
             );
           }
         }
 
-      }
+        const itemTotal =
+          Number(item.price) *
+          Number(item.quantity);
 
-      const grandTotal = total + taxTotal;
+        const taxAmount =
+          (
+            itemTotal *
+            Number(item.tax_percent)
+          ) / 100;
 
-      // Generate invoice number
-      const invoiceNumber = this.generateInvoiceNumber();
+        total += itemTotal;
+        taxTotal += taxAmount;
 
-      // Create sale record
+        return {
+
+          item,
+          product,
+          unit,
+          prescription,
+          normalizedQuantity,
+          itemTotal,
+          taxAmount
+        };
+      });
+
+      const grandTotal =
+        total + taxTotal;
+
+      // =========================
+      // GENERATE INVOICE
+      // =========================
+
+      const invoiceNumber =
+        this.generateInvoiceNumber();
+
+      // =========================
+      // CREATE SALE
+      // =========================
+
       db.prepare(`
-        INSERT INTO sales (
-          sale_uuid, invoice_number, customer_uuid, 
-          total, tax, grand_total, status
-        ) VALUES (?, ?, ?, ?, ?, ?, 'completed')
-      `).run(
+      INSERT INTO sales (
+
+        sale_uuid,
+        invoice_number,
+        customer_uuid,
+
+        total,
+        tax,
+        grand_total,
+
+        status
+
+      ) VALUES (
+
+        ?, ?, ?,
+        ?, ?, ?,
+        'completed'
+      )
+    `).run(
+
         saleUuid,
         invoiceNumber,
         customerUuid,
@@ -188,107 +257,123 @@ export class SaleModel {
         Math.round(grandTotal * 100) / 100
       );
 
-      // Create sale items
+      // =========================
+      // INSERT SALE ITEMS
+      // =========================
+
       const insertItem = db.prepare(`
-        INSERT INTO sale_items (
+      INSERT INTO sale_items (
 
-          sale_uuid,
-          product_uuid,
-          batch_uuid,
+        sale_uuid,
+        product_uuid,
+        batch_uuid,
 
-          quantity,
-          price,
-          total,
+        quantity,
+        price,
+        total,
 
-          gst_percent,
+        gst_percent,
+        gst_amount,
 
-          prescription_required,
-          prescription_number,
+        prescription_required,
+        prescription_number,
 
-          doctor_name,
-          doctor_license,
+        doctor_name,
+        doctor_license,
 
-          patient_name,
-          patient_age,
-          patient_gender,
+        patient_name,
+        patient_age,
+        patient_gender,
 
-          schedule_type
+        schedule_type
 
-        ) VALUES (
+      ) VALUES (
 
-          ?, ?, ?,
-          ?, ?, ?,
-          ?, ?, ?,
-          ?, ?, ?,
-          ?, ?, ?
-        )
-      `);
+        ?, ?, ?,
+        ?, ?, ?,
+        ?, ?,
+        ?, ?,
+        ?, ?,
+        ?, ?, ?,
+        ?
+      )
+    `);
 
-      for (const item of cartData.items) {
+      for (const prepared of preparedItems) {
 
-        const product = db.prepare(
-          'SELECT * FROM products WHERE product_uuid = ?'
-        ).get(item.product_uuid) as any;
-
-        const prescription =
-          prescriptions.find(
-            p => p.product_uuid === item.product_uuid
-          );
-
-        const itemTaxAmount =
-          (item.price * item.quantity * item.tax_percent) / 100;
+        const {
+          item,
+          product,
+          prescription,
+          normalizedQuantity
+        } = prepared;
 
         const consumedBatches =
           ProductBatchModel.consumeStockFEFO(
             item.product_uuid,
-            item.quantity
+            normalizedQuantity
           );
 
         for (const consumed of consumedBatches) {
 
-          const proportionalTax = (
-            item.price *
-            consumed.quantity *
-            item.tax_percent
-          ) / 100;
+          const batchTotal =
+            Number(item.price) *
+            Number(consumed.quantity);
 
-          const result = insertItem.run(
+          const batchTax =
+            (
+              batchTotal *
+              Number(item.tax_percent)
+            ) / 100;
 
-            saleUuid,
+          const result =
+            insertItem.run(
 
-            item.product_uuid,
+              saleUuid,
 
-            consumed.batch_uuid,
+              item.product_uuid,
 
-            consumed.quantity,
+              consumed.batch_uuid,
 
-            item.price,
+              consumed.quantity,
 
-            Math.round(
-              item.price * consumed.quantity * 100
-            ) / 100,
+              item.price,
 
-            item.tax_percent,
+              Math.round(
+                batchTotal * 100
+              ) / 100,
 
-            product.prescription_required || 0,
+              item.tax_percent,
 
-            prescription?.prescription_number || null,
+              Math.round(
+                batchTax * 100
+              ) / 100,
 
-            prescription?.doctor_name || null,
+              product.prescription_required || 0,
 
-            prescription?.doctor_license || null,
+              prescription
+                ?.prescription_number || null,
 
-            prescription?.patient_name || null,
+              prescription
+                ?.doctor_name || null,
 
-            prescription?.patient_age || null,
+              prescription
+                ?.doctor_license || null,
 
-            prescription?.patient_gender || null,
+              prescription
+                ?.patient_name || null,
 
-            product.schedule_type || 'NONE'
-          );
+              prescription
+                ?.patient_age || null,
+
+              prescription
+                ?.patient_gender || null,
+
+              product.schedule_type || 'NONE'
+            );
 
           // =========================
-          // H1 REGISTER ENTRY
+          // H1 REGISTER
           // =========================
 
           if (
@@ -296,13 +381,10 @@ export class SaleModel {
           ) {
 
             const settings = db.prepare(`
-
-              SELECT pharmacist_name
-
-              FROM settings
-
-              LIMIT 1
-            `).get() as {
+            SELECT pharmacist_name
+            FROM settings
+            LIMIT 1
+          `).get() as {
               pharmacist_name?: string;
             };
 
@@ -391,22 +473,227 @@ export class SaleModel {
               })
             });
           }
+
+          // =========================
+          // SCHEDULE X AUDIT
+          // =========================
+
+          if (
+            product.schedule_type === 'X'
+          ) {
+
+            AuditLogModel.create({
+
+              action_type:
+                'schedule_x_sale',
+
+              entity_type:
+                'sale_item',
+
+              entity_uuid:
+                String(
+                  result.lastInsertRowid
+                ),
+
+              reference_uuid:
+                saleUuid,
+
+              user_uuid:
+                currentUser?.user_uuid,
+
+              details: JSON.stringify({
+
+                product_name:
+                  product.name,
+
+                batch_uuid:
+                  consumed.batch_uuid,
+
+                prescription_number:
+                  prescription
+                    ?.prescription_number,
+
+                doctor_license:
+                  prescription
+                    ?.doctor_license
+              })
+            });
+          }
         }
 
-        // Stock ledger entry
+        // =========================
+        // STOCK LEDGER
+        // =========================
+
         db.prepare(`
-          INSERT INTO stock_ledgers (
-            product_uuid, quantity, type, reference_uuid, note
-          ) VALUES (?, ?, 'sale', ?, 'Sale via cart checkout')
-        `).run(item.product_uuid, -item.quantity, saleUuid);
+        INSERT INTO stock_ledgers (
+
+          product_uuid,
+          quantity,
+          type,
+          reference_uuid,
+          note
+
+        ) VALUES (
+
+          ?, ?, 'sale', ?, ?
+        )
+      `).run(
+
+          item.product_uuid,
+
+          -normalizedQuantity,
+
+          saleUuid,
+
+          'Sale via cart checkout'
+        );
       }
 
-      // Create payment records
+      // =========================
+      // PAYMENTS
+      // =========================
+
       let paidAmount = 0;
-      const insertPayment = db.prepare(`
-        INSERT INTO payments (sale_uuid, method, amount, reference)
-        VALUES (?, ?, ?, ?)
+
+      const insertPayment =
+        db.prepare(`
+        INSERT INTO payments (
+
+          sale_uuid,
+          method,
+          amount,
+          reference
+
+        ) VALUES (
+
+          ?, ?, ?, ?
+        )
       `);
+
+      for (const payment of payments) {
+        const roundedAmount =
+          Math.round(
+            Number(payment.amount) * 100
+          ) / 100;
+        insertPayment.run(
+          saleUuid,
+          payment.method,
+
+          roundedAmount,
+
+          payment.reference || null
+        );
+
+        paidAmount += roundedAmount;
+      }
+
+      const balance =
+        Math.round(
+          (grandTotal - paidAmount) * 100
+        ) / 100;
+
+      // =========================
+      // CUSTOMER CREDIT
+      // =========================
+
+      const payLaterAmount =
+        payments
+          .filter(
+            p => p.method === 'pay_later'
+          )
+          .reduce(
+            (sum, p) =>
+              sum + Number(p.amount || 0),
+            0
+          );
+
+      if (
+        customerUuid &&
+        payLaterAmount > 0
+      ) {
+
+        const customer = db.prepare(`
+        SELECT *
+        FROM customers
+        WHERE customer_uuid = ?
+      `).get(
+          customerUuid
+        ) as any;
+
+        if (!customer) {
+
+          throw new Error(
+            'Customer not found'
+          );
+        }
+
+        const currentBalance =
+          Number(
+            customer.credit_balance || 0
+          );
+
+        const creditLimit =
+          Number(
+            customer.credit_limit || 0
+          );
+
+        const newBalance =
+          currentBalance +
+          payLaterAmount;
+
+        if (
+          creditLimit > 0 &&
+          newBalance > creditLimit
+        ) {
+
+          throw new Error(
+            'Credit limit exceeded'
+          );
+        }
+
+        db.prepare(`
+        UPDATE customers
+        SET
+
+          credit_balance = ?,
+
+          updated_at =
+            CURRENT_TIMESTAMP
+
+        WHERE customer_uuid = ?
+      `).run(
+
+          newBalance,
+
+          customerUuid
+        );
+
+        db.prepare(`
+        INSERT INTO customer_ledgers (
+
+          customer_uuid,
+          type,
+          amount,
+          reference_uuid,
+          note
+
+        ) VALUES (
+
+          ?, 'debit', ?, ?, ?
+        )
+      `).run(
+
+          customerUuid,
+          payLaterAmount,
+          saleUuid,
+          `Pay Later invoice #${invoiceNumber}`
+        );
+      }
+
+      // =========================
+      // SALE AUDIT
+      // =========================
 
       AuditLogModel.create({
 
@@ -438,214 +725,48 @@ export class SaleModel {
         })
       });
 
-      for (const payment of payments) {
-        insertPayment.run(
-          saleUuid,
-          payment.method,
-          Math.round(payment.amount * 100) / 100,
-          payment.reference || null
-        );
-        paidAmount += payment.amount;
-      }
+      // =========================
+      // COMPLETE CART
+      // =========================
 
-      const balance = grandTotal - paidAmount;
-      // Update customer credit for Pay Later payments
-      const payLaterAmount = payments
-        .filter(p => p.method === 'pay_later')   // ✅ CORRECT
-        .reduce((sum, p) => sum + Number(p.amount || 0), 0);
-
-      console.log('[BACK] CUSTOMER UUID:', customerUuid);
-      console.log('[BACK] PAY LATER AMOUNT:', payLaterAmount);
-
-      if (customerUuid && payLaterAmount > 0) {
-        const customer = db.prepare(`
-          SELECT * FROM customers 
-          WHERE customer_uuid = ?
-        `).get(customerUuid) as any;
-
-        console.log('[BACK] CUSTOMER BEFORE:', customer);
-
-        if (!customer) {
-          throw new Error('Customer not found');
-        }
-
-        const currentBalance = Number(customer.credit_balance || 0);
-        const creditLimit = Number(customer.credit_limit || 0);
-
-        const newBalance = currentBalance + payLaterAmount;
-
-        console.log('[BACK] NEW BALANCE:', newBalance);
-
-        // Credit limit validation
-        if (creditLimit > 0 && newBalance > creditLimit) {
-          throw new Error('Credit limit exceeded');
-        }
-
-        // Update customer balance
-        const updateResult = db.prepare(`
-          UPDATE customers
-          SET credit_balance = ?,
-              updated_at = CURRENT_TIMESTAMP
-          WHERE customer_uuid = ?
-        `).run(newBalance, customerUuid);
-
-        console.log('[BACK] UPDATE RESULT:', updateResult);
-
-        // Insert ledger entry
-        const ledgerResult = db.prepare(`
-  INSERT INTO customer_ledgers (
-    customer_uuid,
-    type,
-    amount,
-    reference_uuid,
-    note
-  ) VALUES (?, 'debit', ?, ?, ?) 
-`).run(
-          customerUuid,
-          payLaterAmount,
-          saleUuid,
-          `Pay Later invoice #${invoiceNumber}`
-        );
-
-        console.log('[BACK] LEDGER RESULT:', ledgerResult);
-
-        // Verify update immediately
-        const updatedCustomer = db.prepare(`
-          SELECT * FROM customers
-          WHERE customer_uuid = ?
-        `).get(customerUuid);
-
-        console.log('[BACK] CUSTOMER AFTER:', updatedCustomer);
-      }
-
-      console.log('PAYMENTS RECEIVED:', payments);
-
-      // Mark cart as completed
       db.prepare(`
-        UPDATE carts 
-        SET status = 'completed', updated_at = CURRENT_TIMESTAMP 
-        WHERE cart_uuid = ?
-      `).run(cartData.cart_uuid);
+      UPDATE carts
+      SET
 
-      const sale = db.prepare('SELECT * FROM sales WHERE sale_uuid = ?').get(saleUuid) as Sale;
+        status = 'completed',
 
-      return { sale, paid: paidAmount, balance };
-    });
+        updated_at =
+          CURRENT_TIMESTAMP
 
-    return transaction();
-  }
-
-  // Direct sale (without cart) - Pattern matching PHP createSale
-  static createDirectSale(
-    items: Array<{
-      product_uuid: string;
-      quantity: number;
-    }>,
-    customerUuid?: string | null
-  ): { sale: Sale; items: SaleItem[] } {
-    const saleUuid = uuidv4();
-    const itemsData: any[] = [];
-
-    const transaction = db.transaction(() => {
-      let total = 0;
-      let taxTotal = 0;
-
-      for (const item of items) {
-        const product = db.prepare(
-          'SELECT * FROM products WHERE product_uuid = ?'
-        ).get(item.product_uuid) as any;
-
-        if (!product) {
-          throw new Error(`Product not found: ${item.product_uuid}`);
-        }
-
-        if (product.stock < item.quantity) {
-          throw new Error(`Insufficient stock for ${product.name}`);
-        }
-
-        const quantity = item.quantity;
-        const price = product.price;
-        const taxPercent = product.gst_percent;
-
-        const itemTotal = price * quantity;
-        const taxAmount = (itemTotal * taxPercent) / 100;
-
-        total += itemTotal;
-        taxTotal += taxAmount;
-
-        // Decrement stock
-        db.prepare(
-          'UPDATE products SET stock = stock - ?, updated_at = CURRENT_TIMESTAMP WHERE product_uuid = ?'
-        ).run(quantity, product.product_uuid);
-
-        itemsData.push({
-          product_uuid: product.product_uuid,
-          quantity: quantity,
-          price: price,
-          tax_percent: taxPercent,
-          tax_amount: Math.round(taxAmount * 100) / 100
-        });
-      }
-
-      const grandTotal = total + taxTotal;
-      const invoiceNumber = this.generateInvoiceNumber();
-
-      // Create sale
-      db.prepare(`
-        INSERT INTO sales (
-          sale_uuid, invoice_number, customer_uuid, 
-          total, tax, grand_total, status
-        ) VALUES (?, ?, ?, ?, ?, ?, 'completed')
-      `).run(
-        saleUuid,
-        invoiceNumber,
-        customerUuid || null,
-        Math.round(total * 100) / 100,
-        Math.round(taxTotal * 100) / 100,
-        Math.round(grandTotal * 100) / 100
+      WHERE cart_uuid = ?
+    `).run(
+        cartData.cart_uuid
       );
 
-      // Create sale items and stock ledgers
-      for (const data of itemsData) {
-        db.prepare(`
-          INSERT INTO sale_items (
-            sale_uuid, product_uuid, quantity, 
-            price, tax_percent, tax_amount
-          ) VALUES (?, ?, ?, ?, ?, ?)
-        `).run(
-          saleUuid,
-          data.product_uuid,
-          data.quantity,
-          data.price,
-          data.tax_percent,
-          data.tax_amount
-        );
+      const sale = db.prepare(`
+      SELECT *
+      FROM sales
+      WHERE sale_uuid = ?
+    `).get(
+        saleUuid
+      ) as Sale;
 
-        db.prepare(`
-          INSERT INTO stock_ledgers (
-            product_uuid, quantity, type, reference_uuid, note
-          ) VALUES (?, ?, 'sale', ?, 'Direct sale')
-        `).run(data.product_uuid, -data.quantity, saleUuid);
-      }
+      return {
 
-      // Customer ledger for direct sale
-      if (customerUuid) {
-        db.prepare(`
-          INSERT INTO customer_ledgers (
-            customer_uuid, type, amount, reference_uuid, note
-          ) VALUES (?, 'sale', ?, ?, 'Sale created')
-        `).run(customerUuid, grandTotal, saleUuid);
-      }
+        sale,
 
-      const sale = db.prepare('SELECT * FROM sales WHERE sale_uuid = ?').get(saleUuid) as Sale;
+        paid:
+          Math.round(
+            paidAmount * 100
+          ) / 100,
 
-      return { sale, items: itemsData };
+        balance
+      };
     });
 
     return transaction();
   }
 
-  // Get invoice details - Pattern matching PHP invoice method
   // Get invoice details - Pattern matching PHP invoice method
   static getInvoice(
     saleUuid: string

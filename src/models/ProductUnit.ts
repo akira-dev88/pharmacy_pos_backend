@@ -61,16 +61,19 @@ export class ProductUnitModel {
   // FIND BY ID
 
   static findById(
-    uuid: string
+    unitUuid: string
   ): ProductUnit | undefined {
 
-    const stmt = db.prepare(`
-      SELECT *
-      FROM product_units
-      WHERE unit_uuid = ?
-    `);
+    return db.prepare(`
 
-    return stmt.get(uuid) as ProductUnit;
+    SELECT *
+    FROM product_units
+
+    WHERE unit_uuid = ?
+
+  `).get(
+      unitUuid
+    ) as ProductUnit | undefined;
   }
 
   // GET PRODUCT UNITS

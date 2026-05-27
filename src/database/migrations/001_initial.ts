@@ -532,3 +532,4 @@ if (process.argv[1] && process.argv[1].includes('001_initial')) {
   console.log('Migrations completed. Exiting...');
   process.exit(0);
 }
+

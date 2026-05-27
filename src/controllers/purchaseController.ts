@@ -83,6 +83,16 @@ export class PurchaseController {
           return;
         }
 
+        if (!item.unit_uuid) {
+
+          res.status(400).json({
+            error:
+              `Item ${i + 1}: unit_uuid is required`
+          });
+
+          return;
+        }
+
         if (
           item.quantity === undefined ||
           Number(item.quantity) <= 0
@@ -148,6 +158,9 @@ export class PurchaseController {
           product_uuid:
             String(item.product_uuid),
 
+          unit_uuid:
+            String(item.unit_uuid),
+
           batch_number:
             String(item.batch_number),
 
@@ -195,6 +208,10 @@ export class PurchaseController {
         }));
 
       // CREATE PURCHASE
+
+      console.log(
+        JSON.stringify(req.body, null, 2)
+      );
 
       const purchase =
         PurchaseModel.create({
