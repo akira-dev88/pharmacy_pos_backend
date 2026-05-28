@@ -1244,7 +1244,8 @@ Body:
 
 {
   "product_uuid": "9e3a87b1-4fdd-4c14-a58d-643941d34841",
-  "quantity": 2
+  "quantity": 2,
+  "unit_uuid": "94c14511-597e-40a1-ab01-fa1ba6503a87"
 }
 
 GET: /carts/:cart_uuid
