@@ -598,4 +598,44 @@ export class CartModel {
 
     return transaction();
   }
+
+  // Get all carts
+  static getAll(): Cart[] {
+    try {
+      const stmt = db.prepare(`
+      SELECT *
+      FROM carts
+      ORDER BY created_at DESC
+    `);
+
+      return stmt.all() as Cart[];
+    } catch (error) {
+      console.error('Get all carts model error:', error);
+      return [];
+    }
+  }
+
+  static deleteByUuid(cartUuid: string): boolean {
+    try {
+      console.log('Deleting cart:', cartUuid);
+
+      db.prepare(`
+      DELETE FROM cart_items
+      WHERE cart_uuid = ?
+    `).run(cartUuid);
+
+      const result = db.prepare(`
+      DELETE FROM carts
+      WHERE cart_uuid = ?
+    `).run(cartUuid);
+
+      console.log('Delete result:', result);
+
+      return result.changes > 0;
+    } catch (err) {
+      console.error(err);
+      return false;
+    }
+  }
+
 }

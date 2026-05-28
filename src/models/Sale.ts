@@ -35,6 +35,18 @@ export class SaleModel {
       let total = 0;
       let taxTotal = 0;
 
+      // DEBUG: Show cart_items table
+      const cartItemsDebug = db.prepare(`
+        SELECT *
+        FROM cart_items
+      `).all();
+      console.log(
+        'DEBUG - cart_items table:',
+        JSON.stringify(cartItemsDebug, null, 2)
+      );
+
+      
+
       // =========================
       // PREPARE + VALIDATE
       // =========================
@@ -56,10 +68,33 @@ export class SaleModel {
           );
         }
 
+        console.log(
+          'ITEM UNIT UUID:',
+          item.unit_uuid
+        );
+
+        const normalizedUnitUuid =
+          String(item.unit_uuid).replace('.0', '');
+
         const unit =
           ProductUnitModel.findById(
-            item.unit_uuid
+            normalizedUnitUuid
           );
+
+        console.log(
+          'RAW UNIT UUID:',
+          item.unit_uuid
+        );
+
+        console.log(
+          'NORMALIZED UNIT UUID:',
+          normalizedUnitUuid
+        );
+
+        console.log(
+          'UNIT FOUND:',
+          unit
+        );
 
         if (!unit) {
 
@@ -891,6 +926,8 @@ export class SaleModel {
 
       product_uuid: string;
 
+      unit_uuid: string;
+
       batch_uuid: string | null;
 
       quantity: number;
@@ -952,8 +989,14 @@ export class SaleModel {
 
         return {
 
+          id:
+            item.id,
+
           product_name:
             item.product_name,
+
+          unit_uuid:
+            item.unit_uuid,
 
           manufacturer:
             item.manufacturer,
